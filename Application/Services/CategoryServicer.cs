@@ -40,33 +40,48 @@ namespace Application.Services
 
         }
 
-        public async Task Delete(int id)
+        public async Task DeleteAsync(int id, int currentUserId, bool isAdmin, bool deleteLinkedTodos = false)
         {
-            var category = await _categoryRepo.GetById(id);
+            var category = await _categoryRepo.GetAll()
+                .FirstOrDefaultAsync(c=>c.Id == id &&(isAdmin||c.UserId == currentUserId));
+
 
             if (category == null)
             {
                 throw new KeyNotFoundException($"Category with ID {id} not found.");
             }
+
             var todos = await _todoRepo.GetAll()
-                .Where(t => t.CategoryId == id)
+                .Where(t => t.CategoryId == id && (isAdmin || t.UserId == currentUserId))
                 .ToListAsync();
-
-            foreach (var todo in todos)
+            if (deleteLinkedTodos)
             {
-                todo.CategoryId = null;
-                _todoRepo.Update(todo);
-            }
+                foreach (var todo in todos)
+                {
+                   _todoRepo.Delete(todo);
+                }
 
-            await _todoRepo.SaveChanges();
+                await _todoRepo.SaveChanges();
+            }
+            else
+            {
+                foreach (var todo in todos)
+                {
+                    todo.CategoryId = null; 
+                    _todoRepo.Update(todo);
+                }
+                await _todoRepo.SaveChanges();
+            }
 
             _categoryRepo.Delete(category);
             await _categoryRepo.SaveChanges();
         }
 
-        public async Task<List<CategoryListDto>> GetAllAsync(CategoryFilterDto filter)
+        public async Task<List<CategoryListDto>> GetAllAsync(CategoryFilterDto filter, int userId)
         {
-            var query = _categoryRepo.GetAll();
+            var query = _categoryRepo.GetAll()
+                .AsNoTracking()
+                .Where(c => c.UserId == userId);
 
             if (!string.IsNullOrWhiteSpace(filter.Name))
             {
@@ -74,18 +89,17 @@ namespace Application.Services
                 query = query.Where(c => c.Name.ToLower().Contains(normalizedName));
             }
 
-            var categories = await query.ToListAsync();
-
-            return categories.Select(c => new CategoryListDto
+            return await query.Select(c => new CategoryListDto
             {
                 Id = c.Id,
                 Name = c.Name
-            }).ToList();
+            }).ToListAsync();
         }
 
-        public async Task<CategoryListDto?> GetByIdAsync(int id)
+        public async Task<CategoryListDto?> GetByIdAsync(int id, int userId)
         {
-            var category = await _categoryRepo.GetById(id);
+            var category = await _categoryRepo.GetAll()
+                .FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId);
             if (category == null) return null;
 
             return new CategoryListDto
@@ -95,20 +109,24 @@ namespace Application.Services
             };
         }
 
-        public async Task UpdateAsync(int id, CategoryUpdateDto categoryDto)
+        public async Task UpdateAsync(int id,int userId, CategoryUpdateDto categoryDto)
         {
-            var categoryinput = await _categoryRepo.GetById(id);
+            var categoryinput = await _categoryRepo.GetAll()
+                .FirstOrDefaultAsync(c => c.Id == id && c.UserId==userId);
 
             if (categoryinput == null)
             {
-                throw new KeyNotFoundException($"Category with ID {id} not found.");
+                throw new KeyNotFoundException($"Category with ID {id} not found or you don't have permission to edit it.");
             }
             if (!string.IsNullOrWhiteSpace(categoryDto.Name))
             {
                 var normalizedName = categoryDto.Name.Trim().ToLower();
 
                 var exists = await _categoryRepo.GetAll()
-                    .AnyAsync(c => c.Id != id && c.Name.ToLower() == normalizedName);
+                    .AnyAsync(c => c.Id != id &&
+                    c.UserId == userId &&
+                    c.Name.ToLower() == normalizedName);
+
                 if (exists)
                 {
                     throw new InvalidOperationException($"A category with the name '{normalizedName}' already exists.");
