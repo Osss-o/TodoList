@@ -32,8 +32,9 @@ namespace Application.Services
             if (todo.CategoryId.HasValue)
             {
                 var categoryExixts = await _categoryRepo.GetById(todo.CategoryId.Value);
-                if (categoryExixts == null)
-                    throw new KeyNotFoundException("Category not found.");
+
+                if (categoryExixts == null|| categoryExixts.UserId !=userId)
+                    throw new KeyNotFoundException("Category not found or access denied.");
             }
             var todoObj = new Todo
             {
@@ -51,7 +52,7 @@ namespace Application.Services
             await _todoRepo.SaveChanges();
         }
 
-        public async Task DeleteAsync(int id, int userId)
+        public async Task DeleteAsync(int id, int userId, bool isAdmin = false)
         {
             var todo = _todoRepo.GetAll()
                 .FirstOrDefault(x => x.Id == id && x.UserId == userId);
@@ -151,7 +152,7 @@ namespace Application.Services
             };
         }
 
-        public async Task UpdateAsync(int id, TodoUpdateDto todo, int userId)
+        public async Task UpdateAsync(int id, TodoUpdateDto todo, int userId, bool isAdmin = false)
         {
             var todoObj = await _todoRepo.GetAll()
                 .FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId);
@@ -163,13 +164,13 @@ namespace Application.Services
                 todoObj.Title = todo.Title.Trim();
 
             if (todo.Description != null)
-                todo.Description = todo.Description.Trim();
+                todoObj.Description = todo.Description.Trim();
 
             if (todo.CategoryId.HasValue)
             {
-                var categoryExixts = await _categoryRepo.GetById(todo.CategoryId.Value);
+                var categoryExiets = await _categoryRepo.GetById(todo.CategoryId.Value);
 
-                if (categoryExixts == null)
+                if (categoryExiets == null|| categoryExiets.UserId != userId)
 
                     throw new KeyNotFoundException("Category not found.");
 

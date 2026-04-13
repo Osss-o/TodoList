@@ -13,8 +13,8 @@ namespace Application.Services.Interface
         Task<TodoListDto?> GetByIdAsync(int id,int userId);
         Task<List<TodoListDto>> GetAllAsync(TodoFilterDto filter,int userId);
         Task CreateAsync(TodoCreateDto todo, int userId);
-        Task UpdateAsync(int id, TodoUpdateDto todo, int userId);
-        Task DeleteAsync(int id, int userId);
+        Task UpdateAsync(int id, TodoUpdateDto todo, int userId, bool isAdmin = false);
+        Task DeleteAsync(int id, int userId, bool isAdmin = false);
         Task<PagedResultDto<TodoListDto>> SearchAsync(TodoFilterDto filter, int userId, bool isAdmin = false);
     }
 }

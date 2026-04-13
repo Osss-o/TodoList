@@ -20,15 +20,23 @@ namespace TodoList.Controllers
             _todoService = todoService;
         }
 
-        private int CurrentuserId => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+        private bool IsAdmin => User.IsInRole(TodoConst.ADMIN_ROLE);
+        private int CurrentUserId => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
 
 
         [HttpPost("Create")]
         public async Task<IActionResult> Create([FromBody] TodoCreateDto todoDto)
         {
+            if (IsAdmin)
+            {
+                return StatusCode(403, new {
+                    message = "Admins are restricted from creating personal tasks."
+                });
+            }
+
             try
             {
-                await _todoService.CreateAsync(todoDto, CurrentuserId);
+                await _todoService.CreateAsync(todoDto, CurrentUserId);
 
                 return Ok(new { message = "Todo created successfully" });
             }
@@ -52,7 +60,7 @@ namespace TodoList.Controllers
 
             try
             {
-                await _todoService.UpdateAsync(id, todoUpdateDto, CurrentuserId);
+                await _todoService.UpdateAsync(id, todoUpdateDto, CurrentUserId, IsAdmin);
                 return Ok(new { message = "Todo updated successfully" });
             }
             catch (KeyNotFoundException ex)
@@ -75,7 +83,7 @@ namespace TodoList.Controllers
 
             try
             {
-                await _todoService.DeleteAsync(id, CurrentuserId);
+                await _todoService.DeleteAsync(id, CurrentUserId, IsAdmin);
                 return Ok(new { message = "Todo deleted successfully" });
             }
             catch (KeyNotFoundException ex)
@@ -92,7 +100,7 @@ namespace TodoList.Controllers
         public async Task<IActionResult> GetById(int id)
         {
 
-            var todo = await _todoService.GetByIdAsync(id, CurrentuserId);
+            var todo = await _todoService.GetByIdAsync(id, CurrentUserId);
             if (todo == null)
             {
                 return NotFound(new { message = $"Todo with ID {id} not found" });
@@ -102,14 +110,14 @@ namespace TodoList.Controllers
         [HttpGet("GetAll")]
         public async Task<IActionResult> GetAll([FromQuery] TodoFilterDto filter)
         {
-            var todos = await _todoService.GetAllAsync(filter, CurrentuserId);
+            var todos = await _todoService.GetAllAsync(filter, CurrentUserId);
             return Ok(todos);
         }
         [HttpGet("Search")]
         public async Task<IActionResult> Search([FromQuery] TodoFilterDto filter)
         {
             var isAdmin = User.IsInRole(TodoConst.ADMIN_ROLE);
-            var result = await _todoService.SearchAsync(filter, CurrentuserId, isAdmin);
+            var result = await _todoService.SearchAsync(filter, CurrentUserId, isAdmin);
             return Ok(result);
         }
     }
