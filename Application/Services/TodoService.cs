@@ -1,4 +1,5 @@
 ﻿using Application._ُُExtenstions;
+using Application.Dtos.FileAttachment;
 using Application.Dtos.PagedResult;
 using Application.Dtos.Todo;
 using Application.Repositories.Interface;
@@ -14,14 +15,16 @@ namespace Application.Services
     {
         private readonly IGenericRepository<Todo> _todoRepo;
         private readonly IGenericRepository<Category> _categoryRepo;
-
+        private readonly IFileAttachmentService _fileService;
         public TodoService(
             IGenericRepository<Todo> todoRepo,
-            IGenericRepository<Category> categoryRepo)
-
+            IGenericRepository<Category> categoryRepo,
+            IFileAttachmentService fileService)
+            
         {
             _todoRepo = todoRepo;
             _categoryRepo = categoryRepo;
+            _fileService = fileService;
         }
 
         public async Task CreateAsync(TodoCreateDto todo, int userId)
@@ -33,7 +36,7 @@ namespace Application.Services
             {
                 var categoryExixts = await _categoryRepo.GetById(todo.CategoryId.Value);
 
-                if (categoryExixts == null|| categoryExixts.UserId !=userId)
+                if (categoryExixts == null || categoryExixts.UserId != userId)
                     throw new KeyNotFoundException("Category not found or access denied.");
             }
             var todoObj = new Todo
@@ -50,16 +53,35 @@ namespace Application.Services
             };
             await _todoRepo.Insert(todoObj);
             await _todoRepo.SaveChanges();
+
+            if (todo.File != null && todo.File.Length > 0)
+            {
+                await _fileService.CreateAsync(new FileAttachmentCreateDto
+                {
+                    TodoId = todoObj.Id,
+                    File = todo.File
+                }, userId);
+            }
+            if (todo.Files != null && todo.Files.Any())
+            {
+                await _fileService.CreateManyAsync(todo.Files,todoObj.Id, userId);
+            }
+            
         }
 
         public async Task DeleteAsync(int id, int userId, bool isAdmin = false)
         {
             var todo = _todoRepo.GetAll()
+                .Include(t=>t.Attachments)
                 .FirstOrDefault(x => x.Id == id && x.UserId == userId);
 
             if (todo == null)
                 throw new KeyNotFoundException("Todo not found.");
 
+            foreach (var file in todo.Attachments)
+            {
+                await _fileService.DeleteAsync(file.Id, userId, isAdmin);
+            }
 
             _todoRepo.Delete(todo);
             await _todoRepo.SaveChanges();

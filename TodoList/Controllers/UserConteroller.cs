@@ -10,11 +10,11 @@ namespace TodoList.Controllers
     [Authorize]
     [Route("api/[controller]")]
     [ApiController]
-    public class UserConteroller : ControllerBase
+    public class UserController : ControllerBase
     {
         private readonly IUserService _userService;
 
-        public UserConteroller(IUserService userService)
+        public UserController(IUserService userService)
         {
             _userService = userService;
         }
@@ -44,15 +44,14 @@ namespace TodoList.Controllers
         [HttpPut("update/{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] UserUpdateDto userUpdateDto)
         {
-            var currentuserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
             var isAdmin = User.IsInRole(TodoConst.ADMIN_ROLE);
 
-            if (!isAdmin && currentuserId != id)
+            if (!isAdmin && CurrentuserId != id)
                 return Forbid("You cannot update another user's data.");
 
             try
             {
-                await _userService.UpdateAsync(userUpdateDto, id);
+                await _userService.UpdateAsync(userUpdateDto, id, CurrentuserId,isAdmin);
                 return Ok(new { message = " The user was successfully updated." });
             }
             catch (KeyNotFoundException ex)
@@ -70,12 +69,12 @@ namespace TodoList.Controllers
         }
 
         [Authorize(Roles = TodoConst.ADMIN_ROLE)]
-        [HttpDelete("deleet/{id}")]
-        public async Task<IActionResult> Delete(int id)
+        [HttpDelete("delete/{id}")]
+        public async Task<IActionResult> Delete(int id,int currentUserId,bool isAdmin)
         {
             try
             {
-                await _userService.DeleteAsync(id);
+                await _userService.DeleteAsync(id, currentUserId, isAdmin);
                 return Ok(new { message = "The user has been deleted successfully" });
             }
             catch (KeyNotFoundException ex)

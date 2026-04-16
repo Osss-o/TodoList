@@ -25,7 +25,7 @@ namespace TodoList.Controllers
 
 
         [HttpPost("Create")]
-        public async Task<IActionResult> Create([FromBody] TodoCreateDto todoDto)
+        public async Task<IActionResult> Create([FromForm] TodoCreateDto todoDto)
         {
             if (IsAdmin)
             {
@@ -55,7 +55,7 @@ namespace TodoList.Controllers
         }
 
         [HttpPut("Update/{id}")]
-        public async Task<IActionResult> Update(int id, [FromBody] TodoUpdateDto todoUpdateDto)
+        public async Task<IActionResult> Update(int id, [FromForm] TodoUpdateDto todoUpdateDto)
         {
 
             try

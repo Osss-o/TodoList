@@ -110,10 +110,13 @@ namespace Application.Services
 
         public async Task<string> RefreshToken(string refreshToken)
         {
+            var userIdClaim = _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var userId = Convert.ToInt32(userIdClaim);
+
             var storedToken = await _refreshTokenRepo.GetAll()
                 .Include(rt => rt.User)
                
-                .FirstOrDefaultAsync(rt => rt.Token == refreshToken && rt.ExpiryDate > DateTime.UtcNow);
+                .FirstOrDefaultAsync(rt => rt.UserId == userId && rt.Token == refreshToken && rt.ExpiryDate > DateTime.UtcNow);
 
             if (storedToken == null)
                 throw new SecurityTokenException("Invalid refresh token.");

@@ -1,4 +1,5 @@
 ﻿using Domain.Entities.Enums;
+using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -18,5 +19,7 @@ namespace Application.Dtos.Todo
         public DateTime? DueDate { get; set; }
         public Priority Priority { get; set; }
         public RecurrenceType? RecurrenceType { get; set; }
+        public IFormFile? File { get; set; }
+        public List<IFormFile>? Files { get; set; }
     }
 }

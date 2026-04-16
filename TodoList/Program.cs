@@ -1,6 +1,7 @@
 using Application.Repositories.Interface;
 using Application.Services;
 using Application.Services.Interface;
+using Domain.Entities;
 using Infrastructure.Context;
 using Infrastructure.Data;
 using Infrastructure.Repositories;
@@ -8,6 +9,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Security.Cryptography.Xml;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,10 +17,14 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<TodoListDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("Default"))
 );
+
+
+builder.Services.AddScoped<DbContext>(sp=>sp.GetRequiredService<TodoListDbContext>());
+
 builder.Services.AddHttpContextAccessor();
 
-var jwtSection = builder.Configuration.GetSection("Jwt");
 
+var jwtSection = builder.Configuration.GetSection("Jwt");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -33,6 +39,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSection["Key"]))
         };
     });
+
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -57,6 +64,7 @@ builder.Services.AddSwaggerGen(c =>
             Id = "Bearer"
         }
     };
+
     c.AddSecurityDefinition("Bearer", securityScheme);
 
     var securityReq = new OpenApiSecurityRequirement
@@ -66,15 +74,21 @@ builder.Services.AddSwaggerGen(c =>
     c.AddSecurityRequirement(securityReq);
 });
 
-builder.Services.AddHttpContextAccessor();
 
 
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 builder.Services.AddScoped(typeof(IAuthService),typeof(AuthService));
 builder.Services.AddScoped(typeof(ICategoryService), typeof(CategoryService));
 builder.Services.AddScoped(typeof(ITodoService), typeof(TodoService));
-builder.Services.AddScoped(typeof(IFileAttachmentService), typeof(FileAttachmentService));
 builder.Services.AddScoped(typeof(IUserService), typeof(UserService));
+builder.Services.AddScoped<IFileAttachmentService>(sp =>
+{
+    var fileRepo = sp.GetRequiredService<IGenericRepository<FileAttachment>>();
+    var todoRepo = sp.GetRequiredService<IGenericRepository<Todo>>();
+    var env = sp.GetRequiredService<IWebHostEnvironment>();
+    var context = sp.GetRequiredService<TodoListDbContext>();
+    return new FileAttachmentService(fileRepo, todoRepo, env, context);
+});
 
 // Add services to the container.
 
@@ -84,7 +98,7 @@ builder.Services.AddAuthorization();
 builder.Services.AddCors(Options =>
 {
     Options.AddPolicy("AllowReactApp",
-        builder => builder.WithOrigins("http://localhost:3000")
+        builder => builder.WithOrigins("http://localhost:3001", "http://localhost:3000")
         .AllowAnyMethod()
         .AllowAnyHeader());
 });
@@ -109,6 +123,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+
+app.UseStaticFiles();
 app.UseCors("AllowReactApp");
 
 app.UseHttpsRedirection();

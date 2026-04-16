@@ -51,7 +51,7 @@ namespace Application.Services
             await _userRepo.SaveChanges();
         }
 
-        public async Task DeleteAsync(int id)
+        public async Task DeleteAsync(int id, int currentUserId, bool isAdmin)
         {
             var user = await _userRepo.GetById(id);
             if (user == null)
@@ -102,8 +102,11 @@ namespace Application.Services
             };
         }
 
-        public async Task UpdateAsync(UserUpdateDto userDto, int id)
+        public async Task UpdateAsync(UserUpdateDto userDto, int id,int currentUserId,bool isAdmin)
         {
+            if (!isAdmin && id != currentUserId)
+                throw new UnauthorizedAccessException("You are not allowed to update this user.");
+
             var user = await _userRepo.GetById(id);
 
             if (user == null)
@@ -119,13 +122,15 @@ namespace Application.Services
                 if (!Regex.IsMatch(userDto.Email, emailPattern))
                     throw new Exception("Email is not valid.");
 
-                user.Email = userDto.Email.Trim();
+                var normalizedEmail = userDto.Email.Trim().ToLower();
 
                 var exists = await _userRepo.GetAll()
-                    .AnyAsync(u => u.Email == user.Email && u.Id != id);
+                    .AnyAsync(u => u.Email == normalizedEmail && u.Id != id);
+
                 if (exists)
                     throw new Exception("Email is already in use.");
-                user.Email = userDto.Email.Trim();
+
+                user.Email = normalizedEmail;
             }
             user.UpdatedAt = DateTime.UtcNow;
             _userRepo.Update(user);
@@ -149,5 +154,7 @@ namespace Application.Services
             _userRepo.Update(user);
             await _userRepo.SaveChanges();
         }
+
+       
     }
 }
