@@ -1,6 +1,6 @@
 ﻿using Application.Dtos.Todo;
 using Application.Services.Interface;
-using Domain;
+using Domain.Constants;
 using Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -20,7 +20,7 @@ namespace TodoList.Controllers
             _todoService = todoService;
         }
 
-        private bool IsAdmin => User.IsInRole(TodoConst.ADMIN_ROLE);
+        private bool IsAdmin => User.IsInRole(RolesConst.ADMIN_ROLE);
         private int CurrentUserId => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
 
 
@@ -116,7 +116,7 @@ namespace TodoList.Controllers
         [HttpGet("Search")]
         public async Task<IActionResult> Search([FromQuery] TodoFilterDto filter)
         {
-            var isAdmin = User.IsInRole(TodoConst.ADMIN_ROLE);
+            var isAdmin = User.IsInRole(RolesConst.ADMIN_ROLE);
             var result = await _todoService.SearchAsync(filter, CurrentUserId, isAdmin);
             return Ok(result);
         }

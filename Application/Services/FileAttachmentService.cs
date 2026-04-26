@@ -206,8 +206,10 @@ namespace Application.Services
 
             if (file.Length > maxFileSize)
                 throw new InvalidOperationException("File size exceeds the maximum allowed limit of 2 MB.");
-
+          
+            var rootPath = _env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
             var uploadsFolder = Path.Combine(_env.WebRootPath, "uploads");
+          
             if (!Directory.Exists(uploadsFolder))
                 Directory.CreateDirectory(uploadsFolder);
 
@@ -227,7 +229,7 @@ namespace Application.Services
                 FileSize = file.Length,
                 CreatedAt = DateTime.UtcNow,
                 TodoId = todo.Id,
-                Todo = todo,
+               
             };
         }
     }

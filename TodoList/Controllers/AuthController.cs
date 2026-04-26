@@ -1,6 +1,6 @@
 ﻿using Application.Dtos.Auth;
 using Application.Services.Interface;
-using Domain;
+using Domain.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -31,20 +31,21 @@ namespace TodoList.Controllers
         }
 
 
-        [Authorize]
+        [AllowAnonymous]
         [HttpPost("RefreshToken")]
         public async Task<IActionResult> RefreshToken([FromBody] string refreshToken)
         {
-            var newAccessToken = await _authService.RefreshToken(refreshToken);
-            if (newAccessToken == null)
+           var result = await _authService.RefreshToken(refreshToken);
+          
+            if (result == null)
             {
                 return Unauthorized(new { message = "Invalid refresh token" });
             }
-            return Ok(new { AccessToken = newAccessToken });
+            return Ok(result);
         }
 
 
-        [Authorize(Roles = TodoConst.USER_ROLE)]
+        [Authorize(Roles = RolesConst.USER_ROLE)]
         [HttpPost("ChangePassword")]
         public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto input)
         {
@@ -65,7 +66,7 @@ namespace TodoList.Controllers
         }
 
 
-        [Authorize(Roles = TodoConst.ADMIN_ROLE)]
+        [Authorize(Roles = RolesConst.ADMIN_ROLE)]
         [HttpPost("ResetPassword")]
         public async Task<IActionResult> ResetPassword(int userId, string newpassword)
         {

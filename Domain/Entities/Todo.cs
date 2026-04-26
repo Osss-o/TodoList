@@ -17,6 +17,7 @@ namespace Domain.Entities
         public string? Description { get; set; }
         public DateTime ExpiryDate { get; set; }
         public DateTime CreatedAt { get; set; }
+        public DateTime? UpdatedAt { get; set; } 
         public TodoStatus Status { get; set; }
         public Priority Priority { get; set; }
         public RecurrenceType? RecurrenceType { get; set; }

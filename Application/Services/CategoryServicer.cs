@@ -77,11 +77,15 @@ namespace Application.Services
             await _categoryRepo.SaveChanges();
         }
 
-        public async Task<List<CategoryListDto>> GetAllAsync(CategoryFilterDto filter, int userId)
+        public async Task<List<CategoryListDto>> GetAllAsync(CategoryFilterDto filter, int userId, bool isAdmin = false)
         {
             var query = _categoryRepo.GetAll()
-                .AsNoTracking()
-                .Where(c => c.UserId == userId);
+                .AsNoTracking();
+
+            if (!isAdmin)
+            {
+                query = query.Where(c => c.UserId == userId);
+            }
 
             if (!string.IsNullOrWhiteSpace(filter.Name))
             {
@@ -92,7 +96,9 @@ namespace Application.Services
             return await query.Select(c => new CategoryListDto
             {
                 Id = c.Id,
-                Name = c.Name
+                Name = c.Name,
+                TodoCount= _todoRepo.GetAll()
+                .Count(t=>t.CategoryId == c.Id &&(isAdmin || t.UserId == userId))
             }).ToListAsync();
         }
 

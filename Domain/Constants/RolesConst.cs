@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Domain
+namespace Domain.Constants
 {
-    public static class TodoConst
+    public static class RolesConst
     {
         public const string ADMIN_ROLE = "Admin";
         public const string USER_ROLE = "User";

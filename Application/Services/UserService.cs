@@ -1,6 +1,7 @@
 ﻿using Application.Dtos.User;
 using Application.Repositories.Interface;
 using Application.Services.Interface;
+using Domain.Constants;
 using Domain.Entities;
 using Domain.Entities.Enums;
 using Microsoft.AspNetCore.Identity;
@@ -17,10 +18,14 @@ namespace Application.Services
     public class UserService : IUserService
     {
         private readonly IGenericRepository<User> _userRepo;
+        private readonly IGenericRepository<Todo> _todoRepo;
+        private readonly IGenericRepository<Category> _gategoryRepo;
 
-        public UserService(IGenericRepository<User> userRepo)
+        public UserService(IGenericRepository<User> userRepo, IGenericRepository<Todo> todoRepo, IGenericRepository<Category> gategoryRepo)
         {
             _userRepo = userRepo;
+            _todoRepo = todoRepo;
+            _gategoryRepo = gategoryRepo;
         }
 
         public async Task CreateAsync(UserCreateDto user)
@@ -56,6 +61,13 @@ namespace Application.Services
             var user = await _userRepo.GetById(id);
             if (user == null)
                 throw new Exception("User not found.");
+
+            if (user.Email == DefaultAdmin.Email)
+                throw new Exception("Default admin cannot be deleted.");
+
+            if(!isAdmin && id != currentUserId)
+                throw new UnauthorizedAccessException("You don't have permission to delete this user.");
+
             _userRepo.Delete(user);
             await _userRepo.SaveChanges();
         }
@@ -79,7 +91,8 @@ namespace Application.Services
                     Id = u.Id,
                     UserName = u.UserName,
                     Email = u.Email,
-                    CreatedAt = u.CreatedAt
+                    CreatedAt = u.CreatedAt,
+                    Role = u.Role.ToString()
                 }).ToListAsync();
 
             return users;
@@ -112,6 +125,11 @@ namespace Application.Services
             if (user == null)
                 throw new Exception("User not found.");
 
+            if (user.Email == DefaultAdmin.Email && !string.IsNullOrEmpty(userDto.Email))
+            {
+                if (userDto.Email.Trim().ToLower() != DefaultAdmin.Email.ToLower())
+                throw new Exception("Default admin cannot be updated.");
+            }
             if (!string.IsNullOrEmpty(userDto.UserName))
 
                 user.UserName = userDto.UserName;
@@ -148,6 +166,18 @@ namespace Application.Services
             if (user.Role == RoleEnum.Admin)
                 throw new Exception("User is already an admin.");
 
+            var hasTasks = await _todoRepo.GetAll()
+               .AnyAsync(t => t.UserId == id);
+
+            if (hasTasks)
+                throw new Exception("Connot promote user : This account has active tasks.Admin accounts must be clean.");
+
+            var hasCategories = await _gategoryRepo.GetAll()
+                .AnyAsync(c => c.UserId == id);
+
+            if (hasCategories)
+                throw new Exception("Cannat promote user:This accounr has existing category.");
+
             user.Role = RoleEnum.Admin;
             user.UpdatedAt = DateTime.UtcNow;
 
@@ -155,6 +185,24 @@ namespace Application.Services
             await _userRepo.SaveChanges();
         }
 
-       
+        public async Task DemoteFromAdminAsync(int id)
+        {
+            var user = await _userRepo.GetById(id);
+
+            if (user == null)
+                throw new Exception("User not found.");
+
+            if (user.Email == DefaultAdmin.Email)
+                throw new Exception("Default admin cannot be demoted.");
+
+            if (user.Role != RoleEnum.Admin)
+                throw new Exception("User is not an admin.");
+
+            user.Role = RoleEnum.User;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            _userRepo.Update(user);
+            await _userRepo.SaveChanges();
+        }
     }
 }

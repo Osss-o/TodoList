@@ -1,4 +1,4 @@
-﻿using Domain;
+﻿using Domain.Constants;
 using Domain.Entities;
 using Domain.Entities.Enums;
 using Infrastructure.Context;
@@ -11,18 +11,19 @@ namespace Infrastructure.Data
     {
         public static async Task InitializeAsync(TodoListDbContext context)
         {
-            if (!context.Users.Any())
+            if (!context.Users.Any(u=>u.Email == DefaultAdmin.Email))
             {
                 var passwordHasher = new PasswordHasher<User>();
+
                 var admin = new User
                 {
-                    UserName = "admin",
-                    Email = "admin@gmail.com",
+                    UserName = DefaultAdmin.UserName,
+                    Email = DefaultAdmin.Email,
                     Role = RoleEnum.Admin,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
-                admin.Password = passwordHasher.HashPassword(admin, "Admin@123");
+                admin.Password = passwordHasher.HashPassword(admin, DefaultAdmin.Password);
                
                 context.Users.Add(admin);
                 await context.SaveChangesAsync();

@@ -15,5 +15,6 @@ namespace Application.Services.Interface
         Task UpdateAsync(UserUpdateDto user,int id,int currentUserId, bool isAdmin);
         Task DeleteAsync(int id, int currentUserId, bool isAdmin);
         Task PromoteToAdminAsync(int id);
+        Task DemoteFromAdminAsync(int id);
     }
 }

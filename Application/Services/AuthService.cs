@@ -1,7 +1,7 @@
 ﻿using Application.Dtos.Auth;
 using Application.Repositories.Interface;
 using Application.Services.Interface;
-using Domain;
+using Domain.Constants;
 using Domain.Entities;
 using Domain.Entities.Enums;
 using Microsoft.AspNetCore.Http;
@@ -51,12 +51,12 @@ namespace Application.Services
             {
                 return null;
             }
-
-            var accessToken = GenerateAccessToken(user);
-            var refreshToken = GenerateRefreshToken();
-
             var jwtSection = _configuration.GetSection("Jwt");
+            int accessTokenMinutes = jwtSection.GetValue<int>("AccessTokenMinutes");
             int refreshDays = jwtSection.GetValue<int>("RefreshTokenDays");
+
+            var refreshToken = GenerateRefreshToken();
+            var accessToken = GenerateAccessToken(user, accessTokenMinutes);
 
             await _refreshTokenRepo.Insert(new RefreshToken
             {
@@ -73,10 +73,10 @@ namespace Application.Services
                 Email = user.Email,
                 AccessToken = accessToken,
                 RefreshToken = refreshToken,
-                Role = user.Role == RoleEnum.Admin ? TodoConst.ADMIN_ROLE : TodoConst.USER_ROLE
+                Role = user.Role == RoleEnum.Admin ? RolesConst.ADMIN_ROLE : RolesConst.USER_ROLE
             };
         }
-        public string GenerateAccessToken(User user)
+        public string GenerateAccessToken(User user, int accessTokenMinutes)
         {
             var jwtSection = _configuration.GetSection("Jwt");
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSection["Key"]));
@@ -86,13 +86,13 @@ namespace Application.Services
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Name, user.UserName),
                 new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.Role, user.Role == RoleEnum.Admin 
-                ? TodoConst.ADMIN_ROLE : TodoConst.USER_ROLE),
+                new Claim(ClaimTypes.Role, user.Role == RoleEnum.Admin
+                ? RolesConst.ADMIN_ROLE : RolesConst.USER_ROLE),
             };
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.UtcNow.AddMinutes(jwtSection.GetValue<int>("AccessTokenMinutes")),
+                Expires = DateTime.UtcNow.AddMinutes(accessTokenMinutes),
                 Issuer = jwtSection["Issuer"],
                 Audience = jwtSection["Audience"],
                 SigningCredentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256)
@@ -108,21 +108,48 @@ namespace Application.Services
             return Convert.ToBase64String(random);
         }
 
-        public async Task<string> RefreshToken(string refreshToken)
+        public async Task<LoginResponseDto> RefreshToken(string refreshToken)
         {
-            var userIdClaim = _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var userId = Convert.ToInt32(userIdClaim);
+            if (!string.IsNullOrEmpty(refreshToken))
+            {
+                refreshToken = refreshToken.Trim('"');
+            }
 
             var storedToken = await _refreshTokenRepo.GetAll()
                 .Include(rt => rt.User)
-               
-                .FirstOrDefaultAsync(rt => rt.UserId == userId && rt.Token == refreshToken && rt.ExpiryDate > DateTime.UtcNow);
+                .FirstOrDefaultAsync(rt => rt.Token == refreshToken && rt.ExpiryDate > DateTime.UtcNow);
+
 
             if (storedToken == null)
-                throw new SecurityTokenException("Invalid refresh token.");
+            {
+                return null;
+            }
 
             var user = storedToken.User;
-            return GenerateAccessToken(user);
+
+            var jwtSection = _configuration.GetSection("Jwt");
+            int accessTokenMinutes = jwtSection.GetValue<int>("AccessTokenMinutes");
+            int refreshTokenDays = jwtSection.GetValue<int>("RefreshTokenDays");
+
+            var newAccessToken = GenerateAccessToken(user, accessTokenMinutes);
+            var newRefreshToken = GenerateRefreshToken();
+
+            storedToken.Token = newRefreshToken;
+            storedToken.ExpiryDate = DateTime.UtcNow.AddDays(refreshTokenDays);
+
+            _refreshTokenRepo.Update(storedToken);
+            await _refreshTokenRepo.SaveChanges();
+
+            return new LoginResponseDto
+            {
+                Id = user.Id,
+                Username = user.UserName,
+                Email = user.Email,
+                Role = user.Role == RoleEnum.Admin ? RolesConst.ADMIN_ROLE : RolesConst.USER_ROLE,
+                AccessToken = newAccessToken,
+                RefreshToken = newRefreshToken,
+            };
+
         }
 
         public async Task ResetPassword(int userId, string newpassword)

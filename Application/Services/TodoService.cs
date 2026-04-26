@@ -71,9 +71,9 @@ namespace Application.Services
 
         public async Task DeleteAsync(int id, int userId, bool isAdmin = false)
         {
-            var todo = _todoRepo.GetAll()
+            var todo = await _todoRepo.GetAll()
                 .Include(t=>t.Attachments)
-                .FirstOrDefault(x => x.Id == id && x.UserId == userId);
+                .FirstOrDefaultAsync(x => x.Id == id && (isAdmin || x.UserId == userId));
 
             if (todo == null)
                 throw new KeyNotFoundException("Todo not found.");
@@ -106,18 +106,20 @@ namespace Application.Services
                     DueDate = x.ExpiryDate,
                     Status = x.Status,
                     Priority = x.Priority,
-                    RecurrenceType = x.RecurrenceType
+                    RecurrenceType = x.RecurrenceType,
+                    UpdatedAt = x.UpdatedAt,
+                    HasAttachments = x.Attachments.Any()
                 }).ToListAsync();
         }
 
 
-        public async Task<TodoListDto?> GetByIdAsync(int id, int userId)
+        public async Task<TodoListDto?> GetByIdAsync(int id, int userId, bool isAdmin = false)
         {
 
             var todo = await _todoRepo.GetAll()
                 .Include(x => x.Category)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId);
+                .FirstOrDefaultAsync(x => x.Id == id && (isAdmin|| x.UserId == userId));
 
             if (todo == null) return null;
 
@@ -130,7 +132,8 @@ namespace Application.Services
                 DueDate = todo.ExpiryDate,
                 Status = todo.Status,
                 Priority = todo.Priority,
-                RecurrenceType = todo.RecurrenceType
+                RecurrenceType = todo.RecurrenceType,
+               
             };
 
         }
@@ -139,6 +142,7 @@ namespace Application.Services
         {
             var query = _todoRepo.GetAll()
                  .Include(t => t.Category)
+                 .Include(t=>t.User)
                   .AsNoTracking();
 
             if (!isAdmin)
@@ -156,12 +160,14 @@ namespace Application.Services
                 {
                     Id = x.Id,
                     Title = x.Title,
+                    UserName = x.User !=null? x.User.UserName :null,
                     Description = x.Description,
                     CategoryName = x.Category != null ? x.Category.Name : null,
                     DueDate = x.ExpiryDate,
                     Status = x.Status,
                     Priority = x.Priority,
                     RecurrenceType= x.RecurrenceType,
+                    CreatedAt =x.CreatedAt
                 })
                 .ToListAsync();
 
@@ -177,10 +183,18 @@ namespace Application.Services
         public async Task UpdateAsync(int id, TodoUpdateDto todo, int userId, bool isAdmin = false)
         {
             var todoObj = await _todoRepo.GetAll()
-                .FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId);
+                .FirstOrDefaultAsync(x => x.Id == id && (isAdmin || x.UserId == userId));
 
             if (todoObj == null)
                 throw new KeyNotFoundException("Todo not found.");
+
+            if (todo .Status.HasValue && todo.Status.Value != todoObj.Status)
+            {
+                if (todoObj.ExpiryDate.Date<DateTime.UtcNow.Date && todo.Status.Value == TodoStatus.Pending)
+                {
+                    throw new InvalidOperationException("Note: You cannot change the status of an expired task. Please edit the 'Expiration Date'.");
+                }
+            }
 
             if (!string.IsNullOrWhiteSpace(todo.Title))
                 todoObj.Title = todo.Title.Trim();
@@ -192,7 +206,7 @@ namespace Application.Services
             {
                 var categoryExiets = await _categoryRepo.GetById(todo.CategoryId.Value);
 
-                if (categoryExiets == null|| categoryExiets.UserId != userId)
+                if (categoryExiets == null||(!isAdmin && categoryExiets.UserId != userId))
 
                     throw new KeyNotFoundException("Category not found.");
 
@@ -209,7 +223,9 @@ namespace Application.Services
             if (todo.Status.HasValue) todoObj.Status = todo.Status.Value;
             if (todo.Priority.HasValue) todoObj.Priority = todo.Priority.Value;
             if (todo.RecurrenceType.HasValue) todoObj.RecurrenceType= todo.RecurrenceType.Value;
-      
+
+            todoObj.UpdatedAt = DateTime.UtcNow;
+
             _todoRepo.Update(todoObj);
             await _todoRepo.SaveChanges();
         }
