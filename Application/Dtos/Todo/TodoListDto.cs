@@ -14,6 +14,7 @@ namespace Application.Dtos.Todo
         public string Title { get; set; }
         public string? Description { get; set; }
         public string? CategoryName { get; set; }
+        public string? UserName { get; set; }
         public DateTime? DueDate { get; set; }
         public TodoStatus? Status { get; set; }
         public Priority? Priority { get; set; }

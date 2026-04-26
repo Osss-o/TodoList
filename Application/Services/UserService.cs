@@ -1,6 +1,7 @@
 ﻿using Application.Dtos.User;
 using Application.Repositories.Interface;
 using Application.Services.Interface;
+using Domain.Constants;
 using Domain.Entities;
 using Domain.Entities.Enums;
 using Microsoft.AspNetCore.Identity;
@@ -56,6 +57,13 @@ namespace Application.Services
             var user = await _userRepo.GetById(id);
             if (user == null)
                 throw new Exception("User not found.");
+
+            if (user.Email == DefaultAdmin.Email)
+                throw new Exception("Default admin cannot be deleted.");
+
+            if(!isAdmin && id != currentUserId)
+                throw new UnauthorizedAccessException("You don't have permission to delete this user.");
+
             _userRepo.Delete(user);
             await _userRepo.SaveChanges();
         }
@@ -79,7 +87,8 @@ namespace Application.Services
                     Id = u.Id,
                     UserName = u.UserName,
                     Email = u.Email,
-                    CreatedAt = u.CreatedAt
+                    CreatedAt = u.CreatedAt,
+                    Role = u.Role.ToString()
                 }).ToListAsync();
 
             return users;
@@ -112,6 +121,11 @@ namespace Application.Services
             if (user == null)
                 throw new Exception("User not found.");
 
+            if (user.Email == DefaultAdmin.Email && !string.IsNullOrEmpty(userDto.Email))
+            {
+                if (userDto.Email.Trim().ToLower() != DefaultAdmin.Email.ToLower())
+                throw new Exception("Default admin cannot be updated.");
+            }
             if (!string.IsNullOrEmpty(userDto.UserName))
 
                 user.UserName = userDto.UserName;
@@ -155,6 +169,24 @@ namespace Application.Services
             await _userRepo.SaveChanges();
         }
 
-       
+        public async Task DemoteFromAdminAsync(int id)
+        {
+            var user = await _userRepo.GetById(id);
+
+            if (user == null)
+                throw new Exception("User not found.");
+
+            if (user.Email == DefaultAdmin.Email)
+                throw new Exception("Default admin cannot be demoted.");
+
+            if (user.Role != RoleEnum.Admin)
+                throw new Exception("User is not an admin.");
+
+            user.Role = RoleEnum.User;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            _userRepo.Update(user);
+            await _userRepo.SaveChanges();
+        }
     }
 }

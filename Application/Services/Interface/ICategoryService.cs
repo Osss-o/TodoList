@@ -10,7 +10,7 @@ namespace Application.Services.Interface
     public interface ICategoryService
     {
         Task<CategoryListDto?> GetByIdAsync(int id, int userId);
-        Task <List<CategoryListDto>> GetAllAsync(CategoryFilterDto filter, int userId);
+        Task <List<CategoryListDto>> GetAllAsync(CategoryFilterDto filter, int userId, bool isAdmin = false);
         Task CreateAsync(CategoryCreateDto categoryDto, int userId);
         Task UpdateAsync(int id,int userId, CategoryUpdateDto category);
         Task DeleteAsync(int id, int currentUserId, bool isAdmin, bool deleteLinkedTodos = false);

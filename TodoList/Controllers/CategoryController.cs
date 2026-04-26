@@ -1,6 +1,6 @@
 ﻿using Application.Dtos.Category;
 using Application.Services.Interface;
-using Domain;
+using Domain.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -18,7 +18,7 @@ namespace TodoList.Controllers
             _categoryService = categoryService;
         }
         private int CurrentUserId => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
-        private bool IsAdmin => User.IsInRole(TodoConst.ADMIN_ROLE);
+        private bool IsAdmin => User.IsInRole(RolesConst.ADMIN_ROLE);
 
         [Authorize]
         [HttpPost("Create")]
@@ -87,7 +87,9 @@ namespace TodoList.Controllers
         [HttpGet("GetAll")]
         public async Task<IActionResult> GetALl([FromQuery] CategoryFilterDto filter)
         {
-            var categories = await _categoryService.GetAllAsync(filter, CurrentUserId);
+            bool isAdmin = User.IsInRole(RolesConst.ADMIN_ROLE);
+
+            var categories = await _categoryService.GetAllAsync(filter, CurrentUserId,isAdmin);
             return Ok(categories);
         }
 

@@ -1,6 +1,6 @@
-﻿using Application.Dtos.User;
+using Application.Dtos.User;
 using Application.Services.Interface;
-using Domain;
+using Domain.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -44,7 +44,7 @@ namespace TodoList.Controllers
         [HttpPut("update/{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] UserUpdateDto userUpdateDto)
         {
-            var isAdmin = User.IsInRole(TodoConst.ADMIN_ROLE);
+            var isAdmin = User.IsInRole(RolesConst.ADMIN_ROLE);
 
             if (!isAdmin && CurrentuserId != id)
                 return Forbid("You cannot update another user's data.");
@@ -68,7 +68,7 @@ namespace TodoList.Controllers
             }
         }
 
-        [Authorize(Roles = TodoConst.ADMIN_ROLE)]
+        [Authorize(Roles = RolesConst.ADMIN_ROLE)]
         [HttpDelete("delete/{id}")]
         public async Task<IActionResult> Delete(int id,int currentUserId,bool isAdmin)
         {
@@ -87,7 +87,7 @@ namespace TodoList.Controllers
             }
         }
 
-        [Authorize(Roles = TodoConst.ADMIN_ROLE)]
+        [Authorize(Roles = RolesConst.ADMIN_ROLE)]
         [HttpPatch("PromoteToAdmin/{id}")]
         public async Task<IActionResult> PromoteToAdmin(int id)
         {
@@ -103,7 +103,28 @@ namespace TodoList.Controllers
             }
         }
 
+        [Authorize(Roles = RolesConst.ADMIN_ROLE)]
+        [HttpGet("GetAll")]
+        public async Task<IActionResult> GetAll([FromQuery] UserFilterDto filter)
+        {
+            var users = await _userService.GetAllAsync(filter);
+            return Ok(users);
+        }
 
+        [Authorize(Roles = RolesConst.ADMIN_ROLE)]
+        [HttpPatch("DemoteFromAdmin/{id}")]
+        public async Task<IActionResult> DemoteFromAdmin(int id)
+        {
+            try
+            {
+                await _userService.DemoteFromAdminAsync(id);
+                return Ok(new { message = "User has been successfully demoted from Admin." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
     }
 }
 

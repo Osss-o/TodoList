@@ -10,7 +10,7 @@ namespace Application.Services.Interface
 {
     public interface ITodoService
     {
-        Task<TodoListDto?> GetByIdAsync(int id,int userId);
+        Task<TodoListDto?> GetByIdAsync(int id,int userId, bool isAdmin = false);
         Task<List<TodoListDto>> GetAllAsync(TodoFilterDto filter,int userId);
         Task CreateAsync(TodoCreateDto todo, int userId);
         Task UpdateAsync(int id, TodoUpdateDto todo, int userId, bool isAdmin = false);

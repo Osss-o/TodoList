@@ -71,9 +71,9 @@ namespace Application.Services
 
         public async Task DeleteAsync(int id, int userId, bool isAdmin = false)
         {
-            var todo = _todoRepo.GetAll()
+            var todo = await _todoRepo.GetAll()
                 .Include(t=>t.Attachments)
-                .FirstOrDefault(x => x.Id == id && x.UserId == userId);
+                .FirstOrDefaultAsync(x => x.Id == id && (isAdmin || x.UserId == userId));
 
             if (todo == null)
                 throw new KeyNotFoundException("Todo not found.");
@@ -111,13 +111,13 @@ namespace Application.Services
         }
 
 
-        public async Task<TodoListDto?> GetByIdAsync(int id, int userId)
+        public async Task<TodoListDto?> GetByIdAsync(int id, int userId, bool isAdmin = false)
         {
 
             var todo = await _todoRepo.GetAll()
                 .Include(x => x.Category)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId);
+                .FirstOrDefaultAsync(x => x.Id == id && (isAdmin|| x.UserId == userId));
 
             if (todo == null) return null;
 
@@ -139,6 +139,7 @@ namespace Application.Services
         {
             var query = _todoRepo.GetAll()
                  .Include(t => t.Category)
+                 .Include(t=>t.User)
                   .AsNoTracking();
 
             if (!isAdmin)
@@ -156,12 +157,14 @@ namespace Application.Services
                 {
                     Id = x.Id,
                     Title = x.Title,
+                    UserName = x.User !=null? x.User.UserName :null,
                     Description = x.Description,
                     CategoryName = x.Category != null ? x.Category.Name : null,
                     DueDate = x.ExpiryDate,
                     Status = x.Status,
                     Priority = x.Priority,
                     RecurrenceType= x.RecurrenceType,
+                    CreatedAt =x.CreatedAt
                 })
                 .ToListAsync();
 
@@ -177,7 +180,7 @@ namespace Application.Services
         public async Task UpdateAsync(int id, TodoUpdateDto todo, int userId, bool isAdmin = false)
         {
             var todoObj = await _todoRepo.GetAll()
-                .FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId);
+                .FirstOrDefaultAsync(x => x.Id == id && (isAdmin || x.UserId == userId));
 
             if (todoObj == null)
                 throw new KeyNotFoundException("Todo not found.");
@@ -192,7 +195,7 @@ namespace Application.Services
             {
                 var categoryExiets = await _categoryRepo.GetById(todo.CategoryId.Value);
 
-                if (categoryExiets == null|| categoryExiets.UserId != userId)
+                if (categoryExiets == null||(!isAdmin && categoryExiets.UserId != userId))
 
                     throw new KeyNotFoundException("Category not found.");
 

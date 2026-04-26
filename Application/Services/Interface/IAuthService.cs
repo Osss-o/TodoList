@@ -13,8 +13,8 @@ namespace Application.Services.Interface
         Task<LoginResponseDto> LoginAsync(LoginRequestDto input);
         Task ChangePassword(ChangePasswordDto input);
         Task ResetPassword(int usetId,string newpassword);
-        Task <string>RefreshToken(string refreshToken);
-        string GenerateAccessToken(User user);
+        Task <LoginResponseDto> RefreshToken(string refreshToken);
+        string GenerateAccessToken(User user, int accessTokenMinutes);
         string GenerateRefreshToken();
     }
 }

@@ -1,6 +1,6 @@
 ﻿using Application.Dtos.FileAttachment;
 using Application.Services.Interface;
-using Domain;
+using Domain.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -21,7 +21,7 @@ namespace TodoList.Controllers
             _env = env;
         }
         private int CurrentUserId => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
-        private bool IsAdmin => User.IsInRole(TodoConst.ADMIN_ROLE);
+        private bool IsAdmin => User.IsInRole(RolesConst.ADMIN_ROLE);
 
 
         [HttpPost("Create")]
@@ -171,16 +171,14 @@ namespace TodoList.Controllers
             if (fileAttachmentD == null)
                 return NotFound(new { Message = $"File attachment with ID {id} not found" });
 
-            var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", fileAttachmentD.FilePath.TrimStart('/'));
+            var filePath = Path.Combine(_env.WebRootPath, fileAttachmentD.FilePath.Replace("/", "\\"));
 
             if (!System.IO.File.Exists(filePath))
                 return NotFound(new { Message = "File not found on srever. " });
 
             var contentType = fileAttachmentD.ContentType ?? "application/octet-stream";
-            var fileName = Path.GetFileName(filePath);
-
-            var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
-            return File(fileBytes, contentType, fileName);
+          
+            return File(await System.IO.File.ReadAllBytesAsync(filePath), contentType, fileAttachmentD.FileName);
         }
     }
 }
