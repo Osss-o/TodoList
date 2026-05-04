@@ -21,7 +21,7 @@ namespace TodoList.Controllers
             _env = env;
         }
         private int CurrentUserId => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
-        private bool IsAdmin => User.IsInRole(RolesConst.ADMIN_ROLE);
+        private bool IsAdmin => User.IsInRole(RolesConst.ADMIN_ROLE) || User.IsInRole(RolesConst.SUPER_ADMIN_ROLE);
 
 
         [HttpPost("Create")]

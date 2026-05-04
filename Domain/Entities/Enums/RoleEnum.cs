@@ -1,14 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Domain.Entities.Enums
+﻿namespace Domain.Entities.Enums
 {
     public enum RoleEnum
     {
-        Admin=1,
-        User=2,
+        SuperAdmin = 1,
+        Admin = 2,
+        User = 3
     }
 }

@@ -11,23 +11,34 @@ namespace Infrastructure.Data
     {
         public static async Task InitializeAsync(TodoListDbContext context)
         {
-            if (!context.Users.Any(u=>u.Email == DefaultAdmin.Email))
+            var existingAdmin = await context.Users.FirstOrDefaultAsync(u => u.Email == SuperAdmin.Email);
+
+
+            if (existingAdmin == null)
             {
                 var passwordHasher = new PasswordHasher<User>();
 
                 var admin = new User
                 {
-                    UserName = DefaultAdmin.UserName,
-                    Email = DefaultAdmin.Email,
-                    Role = RoleEnum.Admin,
+                    UserName = SuperAdmin.UserName,
+                    Email = SuperAdmin.Email,
+                    Role = RoleEnum.SuperAdmin,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
-                admin.Password = passwordHasher.HashPassword(admin, DefaultAdmin.Password);
-               
+                admin.Password = passwordHasher.HashPassword(admin, SuperAdmin.Password);
+
                 context.Users.Add(admin);
                 await context.SaveChangesAsync();
 
+            }
+            else if (existingAdmin.Role != RoleEnum.SuperAdmin)
+            {
+                {
+                    existingAdmin.Role = RoleEnum.SuperAdmin;
+                    context.Users.Update(existingAdmin);
+                    await context.SaveChangesAsync();
+                }
             }
         }
     }

@@ -66,7 +66,7 @@ namespace TodoList.Controllers
         }
 
 
-        [Authorize(Roles = RolesConst.ADMIN_ROLE)]
+        [Authorize(Roles = $"{RolesConst.SUPER_ADMIN_ROLE},{RolesConst.ADMIN_ROLE}")]
         [HttpPost("ResetPassword")]
         public async Task<IActionResult> ResetPassword(int userId, string newpassword)
         {

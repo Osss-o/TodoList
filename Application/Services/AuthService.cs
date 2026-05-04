@@ -73,7 +73,7 @@ namespace Application.Services
                 Email = user.Email,
                 AccessToken = accessToken,
                 RefreshToken = refreshToken,
-                Role = user.Role == RoleEnum.Admin ? RolesConst.ADMIN_ROLE : RolesConst.USER_ROLE
+                Role = user.Role.ToString()
             };
         }
         public string GenerateAccessToken(User user, int accessTokenMinutes)
@@ -86,8 +86,7 @@ namespace Application.Services
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Name, user.UserName),
                 new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.Role, user.Role == RoleEnum.Admin
-                ? RolesConst.ADMIN_ROLE : RolesConst.USER_ROLE),
+                new Claim(ClaimTypes.Role, user.Role.ToString()),
             };
             var tokenDescriptor = new SecurityTokenDescriptor
             {
@@ -145,7 +144,7 @@ namespace Application.Services
                 Id = user.Id,
                 Username = user.UserName,
                 Email = user.Email,
-                Role = user.Role == RoleEnum.Admin ? RolesConst.ADMIN_ROLE : RolesConst.USER_ROLE,
+                Role = user.Role.ToString(),
                 AccessToken = newAccessToken,
                 RefreshToken = newRefreshToken,
             };
@@ -158,7 +157,7 @@ namespace Application.Services
             if (user == null)
                 throw new KeyNotFoundException("User not found.");
 
-            if (user.Role == RoleEnum.Admin)
+            if (user.Role == RoleEnum.Admin || user.Role == RoleEnum.SuperAdmin)
                 throw new UnauthorizedAccessException("Cannot reset password for admin users");
 
             var passwordHasher = new PasswordHasher<User>();

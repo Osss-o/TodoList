@@ -18,7 +18,7 @@ namespace TodoList.Controllers
             _categoryService = categoryService;
         }
         private int CurrentUserId => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
-        private bool IsAdmin => User.IsInRole(RolesConst.ADMIN_ROLE);
+        private bool IsAdmin => User.IsInRole(RolesConst.ADMIN_ROLE)|| User.IsInRole(RolesConst.SUPER_ADMIN_ROLE);
 
         [Authorize]
         [HttpPost("Create")]
@@ -87,7 +87,7 @@ namespace TodoList.Controllers
         [HttpGet("GetAll")]
         public async Task<IActionResult> GetALl([FromQuery] CategoryFilterDto filter)
         {
-            bool isAdmin = User.IsInRole(RolesConst.ADMIN_ROLE);
+            bool isAdmin = User.IsInRole(RolesConst.ADMIN_ROLE)||User.IsInRole(RolesConst.SUPER_ADMIN_ROLE);
 
             var categories = await _categoryService.GetAllAsync(filter, CurrentUserId,isAdmin);
             return Ok(categories);

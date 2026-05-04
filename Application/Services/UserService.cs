@@ -62,7 +62,7 @@ namespace Application.Services
             if (user == null)
                 throw new Exception("User not found.");
 
-            if (user.Email == DefaultAdmin.Email)
+            if (user.Email == SuperAdmin.Email)
                 throw new Exception("Default admin cannot be deleted.");
 
             if(!isAdmin && id != currentUserId)
@@ -125,9 +125,9 @@ namespace Application.Services
             if (user == null)
                 throw new Exception("User not found.");
 
-            if (user.Email == DefaultAdmin.Email && !string.IsNullOrEmpty(userDto.Email))
+            if (user.Email == SuperAdmin.Email && !string.IsNullOrEmpty(userDto.Email))
             {
-                if (userDto.Email.Trim().ToLower() != DefaultAdmin.Email.ToLower())
+                if (userDto.Email.Trim().ToLower() != SuperAdmin.Email.ToLower())
                 throw new Exception("Default admin cannot be updated.");
             }
             if (!string.IsNullOrEmpty(userDto.UserName))
@@ -185,14 +185,17 @@ namespace Application.Services
             await _userRepo.SaveChanges();
         }
 
-        public async Task DemoteFromAdminAsync(int id)
+        public async Task DemoteFromAdminAsync(int id,RoleEnum role)
         {
+            if (role !=RoleEnum.SuperAdmin)
+                throw new UnauthorizedAccessException("Only super admins can demote admins.");
+          
             var user = await _userRepo.GetById(id);
 
             if (user == null)
                 throw new Exception("User not found.");
 
-            if (user.Email == DefaultAdmin.Email)
+            if (user.Email == SuperAdmin.Email)
                 throw new Exception("Default admin cannot be demoted.");
 
             if (user.Role != RoleEnum.Admin)

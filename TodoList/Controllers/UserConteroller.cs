@@ -1,8 +1,10 @@
 using Application.Dtos.User;
 using Application.Services.Interface;
 using Domain.Constants;
+using Domain.Entities.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Runtime.CompilerServices;
 using System.Security.Claims;
 
 namespace TodoList.Controllers
@@ -19,7 +21,7 @@ namespace TodoList.Controllers
             _userService = userService;
         }
 
-                private int CurrentuserId => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+        private int CurrentuserId => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
 
 
         [AllowAnonymous]
@@ -44,14 +46,14 @@ namespace TodoList.Controllers
         [HttpPut("update/{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] UserUpdateDto userUpdateDto)
         {
-            var isAdmin = User.IsInRole(RolesConst.ADMIN_ROLE);
+            var isAdmin = User.IsInRole(RolesConst.ADMIN_ROLE) || User.IsInRole(RolesConst.SUPER_ADMIN_ROLE);
 
             if (!isAdmin && CurrentuserId != id)
                 return Forbid("You cannot update another user's data.");
 
             try
             {
-                await _userService.UpdateAsync(userUpdateDto, id, CurrentuserId,isAdmin);
+                await _userService.UpdateAsync(userUpdateDto, id, CurrentuserId, isAdmin);
                 return Ok(new { message = " The user was successfully updated." });
             }
             catch (KeyNotFoundException ex)
@@ -68,9 +70,9 @@ namespace TodoList.Controllers
             }
         }
 
-        [Authorize(Roles = RolesConst.ADMIN_ROLE)]
+        [Authorize(Roles = $"{RolesConst.SUPER_ADMIN_ROLE},{RolesConst.ADMIN_ROLE}")]
         [HttpDelete("delete/{id}")]
-        public async Task<IActionResult> Delete(int id,int currentUserId,bool isAdmin)
+        public async Task<IActionResult> Delete(int id, int currentUserId, bool isAdmin)
         {
             try
             {
@@ -87,7 +89,7 @@ namespace TodoList.Controllers
             }
         }
 
-        [Authorize(Roles = RolesConst.ADMIN_ROLE)]
+        [Authorize(Roles = $"{RolesConst.SUPER_ADMIN_ROLE},{RolesConst.ADMIN_ROLE}")]
         [HttpPatch("PromoteToAdmin/{id}")]
         public async Task<IActionResult> PromoteToAdmin(int id)
         {
@@ -99,11 +101,11 @@ namespace TodoList.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new {message = ex.Message});
+                return BadRequest(new { message = ex.Message });
             }
         }
 
-        [Authorize(Roles = RolesConst.ADMIN_ROLE)]
+        [Authorize(Roles = $"{RolesConst.SUPER_ADMIN_ROLE},{RolesConst.ADMIN_ROLE}")]
         [HttpGet("GetAll")]
         public async Task<IActionResult> GetAll([FromQuery] UserFilterDto filter)
         {
@@ -111,14 +113,25 @@ namespace TodoList.Controllers
             return Ok(users);
         }
 
-        [Authorize(Roles = RolesConst.ADMIN_ROLE)]
+        [Authorize(Roles = RolesConst.SUPER_ADMIN_ROLE)]
         [HttpPatch("DemoteFromAdmin/{id}")]
         public async Task<IActionResult> DemoteFromAdmin(int id)
         {
             try
             {
-                await _userService.DemoteFromAdminAsync(id);
+                var roleClaim = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+
+                if (!Enum.TryParse(roleClaim, out RoleEnum role))
+                {
+                    return Unauthorized(new { message = "Invalid role claim." });
+                }
+
+                await _userService.DemoteFromAdminAsync(id, role);
                 return Ok(new { message = "User has been successfully demoted from Admin." });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(403, new { message = ex.Message });
             }
             catch (Exception ex)
             {
