@@ -30,7 +30,14 @@ namespace Infrastructure.Context
 
             foreach (var relationShip in relationShips)
             {
-                relationShip.DeleteBehavior = DeleteBehavior.Restrict;
+                if( relationShip.PrincipalEntityType.ClrType == typeof(User))
+                {
+                    relationShip.DeleteBehavior = DeleteBehavior.Cascade;
+                }
+                else
+                {
+                    relationShip.DeleteBehavior = DeleteBehavior.Restrict;
+                }
             }
 
             modelBuilder.Entity<Todo>()
@@ -50,8 +57,6 @@ namespace Infrastructure.Context
                 .WithMany()
                 .HasForeignKey(rt => rt.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
-
-            
 
         }
     }

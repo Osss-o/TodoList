@@ -58,7 +58,10 @@ namespace Application.Services
 
         public async Task DeleteAsync(int id, int currentUserId, bool isAdmin)
         {
-            var user = await _userRepo.GetById(id);
+            var user = await _userRepo.GetAll()
+                .Include(u => u.Todos)
+                .Include(u => u.Categories)
+                .FirstOrDefaultAsync(u => u.Id == id);
             if (user == null)
                 throw new Exception("User not found.");
 
