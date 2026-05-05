@@ -11,6 +11,7 @@ namespace Application.Dtos.Todo
     {
         public string? Title { get; set; }
         public int? CategoryId { get; set; }
+        public string? Search { get; set; }
         public TodoStatus? Status { get; set; }
         public Priority? Priority { get; set; }
         public RecurrenceType? RecurrenceType { get; set; }

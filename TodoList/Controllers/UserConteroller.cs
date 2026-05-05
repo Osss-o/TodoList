@@ -72,11 +72,13 @@ namespace TodoList.Controllers
 
         [Authorize(Roles = $"{RolesConst.SUPER_ADMIN_ROLE},{RolesConst.ADMIN_ROLE}")]
         [HttpDelete("delete/{id}")]
-        public async Task<IActionResult> Delete(int id, int currentUserId, bool isAdmin)
+        public async Task<IActionResult> Delete(int id)
         {
+            var isAdmin = User.IsInRole(RolesConst.ADMIN_ROLE) || User.IsInRole(RolesConst.SUPER_ADMIN_ROLE);
             try
             {
-                await _userService.DeleteAsync(id, currentUserId, isAdmin);
+
+                await _userService.DeleteAsync(id, CurrentuserId, isAdmin);
                 return Ok(new { message = "The user has been deleted successfully" });
             }
             catch (KeyNotFoundException ex)

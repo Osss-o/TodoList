@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Application.Specifications.TodoSpecs;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -17,5 +18,9 @@ namespace Application.Repositories.Interface
         Task DeleteRange(List<T> entities);
         Task<int> SaveChanges();
 
+        Task<T?> GetEntityWithSpec(ISpecification<T> spec);
+        Task<IReadOnlyList<T>> ListWithSpecAsync(ISpecification<T> spec);
+        Task<int> CountAsync(ISpecification<T> spec);
+       
     }
 }

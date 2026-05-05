@@ -4,9 +4,9 @@ using Application.Dtos.PagedResult;
 using Application.Dtos.Todo;
 using Application.Repositories.Interface;
 using Application.Services.Interface;
+using Application.Specifications.TodoSpecs;
 using Domain.Entities;
 using Domain.Entities.Enums;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services
@@ -20,7 +20,7 @@ namespace Application.Services
             IGenericRepository<Todo> todoRepo,
             IGenericRepository<Category> categoryRepo,
             IFileAttachmentService fileService)
-            
+
         {
             _todoRepo = todoRepo;
             _categoryRepo = categoryRepo;
@@ -64,16 +64,15 @@ namespace Application.Services
             }
             if (todo.Files != null && todo.Files.Any())
             {
-                await _fileService.CreateManyAsync(todo.Files,todoObj.Id, userId);
+                await _fileService.CreateManyAsync(todo.Files, todoObj.Id, userId);
             }
-            
+
         }
 
         public async Task DeleteAsync(int id, int userId, bool isAdmin = false)
         {
-            var todo = await _todoRepo.GetAll()
-                .Include(t=>t.Attachments)
-                .FirstOrDefaultAsync(x => x.Id == id && (isAdmin || x.UserId == userId));
+            var spec = new TodoByIdSpecs(id, userId, isAdmin);
+            var todo = await _todoRepo.GetEntityWithSpec(spec);
 
             if (todo == null)
                 throw new KeyNotFoundException("Todo not found.");
@@ -83,43 +82,42 @@ namespace Application.Services
                 await _fileService.DeleteAsync(file.Id, userId, isAdmin);
             }
 
-            _todoRepo.Delete(todo);
+            await _todoRepo.Delete(todo);
             await _todoRepo.SaveChanges();
 
         }
 
         public async Task<List<TodoListDto>> GetAllAsync(TodoFilterDto filter, int userId)
-        {
-           return await _todoRepo.GetAll()
-               .AsNoTracking()
-               .Where(x => x.UserId == userId)
-               .Include(x => x.Category)
-               .ApplyFilters(filter)
-               .OrderByDescending(x => x.CreatedAt)
-              
-                .Select(x => new TodoListDto
-                {
-                    Id = x.Id,
-                    Title = x.Title,
-                    Description = x.Description,
-                    CategoryName = x.Category != null ? x.Category.Name : null,
-                    DueDate = x.ExpiryDate,
-                    Status = x.Status,
-                    Priority = x.Priority,
-                    RecurrenceType = x.RecurrenceType,
-                    UpdatedAt = x.UpdatedAt,
-                    HasAttachments = x.Attachments.Any()
-                }).ToListAsync();
+        { 
+            filter.PageNumber = 1;
+            filter.PageSize = int.MaxValue;
+
+            var spec = new TodoWithFiltersSpecs(filter, userId,isAdmin: false);
+            var todos = await _todoRepo.ListWithSpecAsync(spec);
+             
+            return todos.Select(x => new TodoListDto
+                 {
+                     Id = x.Id,
+                     Title = x.Title,
+                     UserName = x.User?.UserName,
+                     Description = x.Description,
+                     CategoryName = x.Category?.Name,
+                     DueDate = x.ExpiryDate,
+                     Status = x.Status,
+                     Priority = x.Priority,
+                     RecurrenceType = x.RecurrenceType,
+                     CreatedAt =x.CreatedAt,
+                     UpdatedAt = x.UpdatedAt,
+                     HasAttachments = x.Attachments.Any()
+                 }).ToList();
         }
 
 
         public async Task<TodoListDto?> GetByIdAsync(int id, int userId, bool isAdmin = false)
         {
 
-            var todo = await _todoRepo.GetAll()
-                .Include(x => x.Category)
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.Id == id && (isAdmin|| x.UserId == userId));
+            var spec = new TodoByIdSpecs(id, userId, isAdmin);
+            var todo = await _todoRepo.GetEntityWithSpec(spec);
 
             if (todo == null) return null;
 
@@ -128,52 +126,61 @@ namespace Application.Services
                 Id = todo.Id,
                 Title = todo.Title,
                 Description = todo.Description,
-                CategoryName = todo.Category != null ? todo.Category.Name : null,
+                CategoryName = todo.Category?.Name,
+                UserName = todo.User?.UserName,
                 DueDate = todo.ExpiryDate,
                 Status = todo.Status,
                 Priority = todo.Priority,
                 RecurrenceType = todo.RecurrenceType,
-               
+                CreatedAt=todo.CreatedAt,
+                UpdatedAt = todo.UpdatedAt,
+                HasAttachments = todo.Attachments.Any()
+
             };
 
         }
 
         public async Task<PagedResultDto<TodoListDto>> SearchAsync(TodoFilterDto filter, int userId, bool isAdmin = false)
         {
-            var query = _todoRepo.GetAll()
-                 .Include(t => t.Category)
-                 .Include(t=>t.User)
-                  .AsNoTracking();
+            var spec = new TodoWithFiltersSpecs(filter, userId, isAdmin);
 
-            if (!isAdmin)
-                query = query.Where(x => x.UserId == userId);
+            var todos = await _todoRepo.ListWithSpecAsync(spec);
 
-            query= query.ApplyFilters(filter);
+            var countFilter = new TodoFilterDto
+            {
+                Search = filter.Search,
+                CategoryId = filter.CategoryId,
+                Status = filter.Status,
+                Priority = filter.Priority,
+                RecurrenceType = filter.RecurrenceType,
+                Title = filter.Title,
+                FromeDate = filter.FromeDate,
+                ToDate = filter.ToDate,
+                PageNumber =1,
+                PageSize = int.MaxValue
+            };
 
-            var totalCount = await query.CountAsync();
+            var countSpec = new TodoWithFiltersSpecs(countFilter, userId, isAdmin);
+            var totalCount = await _todoRepo.CountAsync(countSpec);
 
-            var todos = await query
-                .OrderByDescending(x => x.CreatedAt)
-                .Skip((filter.PageNumber - 1) * filter.PageSize)
-                .Take(filter.PageSize)
-                .Select(x => new TodoListDto
-                {
-                    Id = x.Id,
-                    Title = x.Title,
-                    UserName = x.User !=null? x.User.UserName :null,
-                    Description = x.Description,
-                    CategoryName = x.Category != null ? x.Category.Name : null,
-                    DueDate = x.ExpiryDate,
-                    Status = x.Status,
-                    Priority = x.Priority,
-                    RecurrenceType= x.RecurrenceType,
-                    CreatedAt =x.CreatedAt
-                })
-                .ToListAsync();
+
+            var results = todos.Select(x => new TodoListDto
+            {
+                Id = x.Id,
+                Title = x.Title,
+                UserName = x.User?.UserName,
+                Description = x.Description,
+                CategoryName = x.Category?.Name,
+                DueDate = x.ExpiryDate,
+                Status = x.Status,
+                Priority = x.Priority,
+                RecurrenceType = x.RecurrenceType,
+                CreatedAt = x.CreatedAt
+            }).ToList();
 
             return new PagedResultDto<TodoListDto>
             {
-                Results = todos,
+                Results = results,
                 TotalCount = totalCount,
                 PageNumber = filter.PageNumber,
                 PageSize = filter.PageSize
@@ -188,9 +195,9 @@ namespace Application.Services
             if (todoObj == null)
                 throw new KeyNotFoundException("Todo not found.");
 
-            if (todo .Status.HasValue && todo.Status.Value != todoObj.Status)
+            if (todo.Status.HasValue && todo.Status.Value != todoObj.Status)
             {
-                if (todoObj.ExpiryDate.Date<DateTime.UtcNow.Date && todo.Status.Value == TodoStatus.Pending)
+                if (todoObj.ExpiryDate.Date < DateTime.UtcNow.Date && todo.Status.Value == TodoStatus.Pending)
                 {
                     throw new InvalidOperationException("Note: You cannot change the status of an expired task. Please edit the 'Expiration Date'.");
                 }
@@ -206,7 +213,7 @@ namespace Application.Services
             {
                 var categoryExiets = await _categoryRepo.GetById(todo.CategoryId.Value);
 
-                if (categoryExiets == null||(!isAdmin && categoryExiets.UserId != userId))
+                if (categoryExiets == null || (!isAdmin && categoryExiets.UserId != userId))
 
                     throw new KeyNotFoundException("Category not found.");
 
@@ -222,7 +229,7 @@ namespace Application.Services
             }
             if (todo.Status.HasValue) todoObj.Status = todo.Status.Value;
             if (todo.Priority.HasValue) todoObj.Priority = todo.Priority.Value;
-            if (todo.RecurrenceType.HasValue) todoObj.RecurrenceType= todo.RecurrenceType.Value;
+            if (todo.RecurrenceType.HasValue) todoObj.RecurrenceType = todo.RecurrenceType.Value;
 
             todoObj.UpdatedAt = DateTime.UtcNow;
 

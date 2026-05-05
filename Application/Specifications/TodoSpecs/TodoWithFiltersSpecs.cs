@@ -7,16 +7,16 @@ namespace Application.Specifications.TodoSpecs
     {
         public TodoWithFiltersSpecs(TodoFilterDto filter, int userId, bool isAdmin)
 
-            : base(x => 
+            : base(x =>
                (isAdmin || x.UserId == userId) &&
-
-                (string.IsNullOrEmpty(filter.Search) || x.Title.Contains(filter.Search)) &&
+                 (string.IsNullOrEmpty(filter.Title) || x.Title.Contains(filter.Title)) &&
+                 (string.IsNullOrEmpty(filter.Search) || x.Title.Contains(filter.Search)) &&
 
                 (!filter.CategoryId.HasValue || x.CategoryId == filter.CategoryId) &&
                 (!filter.Priority.HasValue || x.Priority == filter.Priority) &&
                 (!filter.Status.HasValue || x.Status == filter.Status) &&
                 (!filter.RecurrenceType.HasValue || x.RecurrenceType == filter.RecurrenceType))
-                
+
         {
             AddInclude(x => x.Category);
             AddInclude(x => x.User);

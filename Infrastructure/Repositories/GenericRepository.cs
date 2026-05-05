@@ -12,14 +12,14 @@ namespace Infrastructure.Repositories
     public class GenericRepository<T> : IGenericRepository<T> where T : class
     {
         private readonly TodoListDbContext _todolistDbcontext;
-        
+
 
         public GenericRepository(TodoListDbContext todolistDbcontext)
         {
             _todolistDbcontext = todolistDbcontext;
-            
+
         }
-        public async Task <T?> GetById(int id)
+        public async Task<T?> GetById(int id)
         {
             return await _todolistDbcontext.Set<T>().FindAsync(id);
         }
@@ -42,17 +42,32 @@ namespace Infrastructure.Repositories
         public async Task Delete(T entity)
         {
             _todolistDbcontext.Set<T>().Remove(entity);
-           
+
         }
         public async Task DeleteRange(List<T> entities)
-            {
+        {
             _todolistDbcontext.Set<T>().RemoveRange(entities);
-           
+
         }
         public async Task<int> SaveChanges()
         {
             return await _todolistDbcontext.SaveChangesAsync();
         }
-
+        public async Task<T?> GetEntityWithSpec(ISpecification<T> spec)
+        {
+            return await ApplySpecification(spec).FirstOrDefaultAsync();
+        }
+        public async Task<IReadOnlyList<T>> ListWithSpecAsync(ISpecification<T> spec)
+        {
+            return await ApplySpecification(spec).ToListAsync();
+        }
+        public async Task<int> CountAsync(ISpecification<T> spec)
+        {
+            return await ApplySpecification(spec).CountAsync();
+        }
+        private IQueryable<T> ApplySpecification(ISpecification<T> spec)
+        {
+            return SpecificationEvaluator<T>.GetQuery(_todolistDbcontext.Set<T>().AsQueryable(), spec);
+        }
     }
 }
