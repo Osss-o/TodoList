@@ -15,13 +15,13 @@ namespace TodoList.Controllers
     public class UserController : ControllerBase
     {
         private readonly IUserService _userService;
+        private readonly ICurrentUserService _currentUserService;
 
-        public UserController(IUserService userService)
+        public UserController(IUserService userService, ICurrentUserService currentUserService)
         {
             _userService = userService;
+            _currentUserService = currentUserService;
         }
-
-        private int CurrentuserId => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
 
 
         [AllowAnonymous]
@@ -46,14 +46,13 @@ namespace TodoList.Controllers
         [HttpPut("update/{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] UserUpdateDto userUpdateDto)
         {
-            var isAdmin = User.IsInRole(RolesConst.ADMIN_ROLE) || User.IsInRole(RolesConst.SUPER_ADMIN_ROLE);
 
-            if (!isAdmin && CurrentuserId != id)
+            if (!_currentUserService.IsAdmin && _currentUserService.UserId != id)
                 return Forbid("You cannot update another user's data.");
 
             try
             {
-                await _userService.UpdateAsync(userUpdateDto, id, CurrentuserId, isAdmin);
+                await _userService.UpdateAsync(userUpdateDto, id, _currentUserService.UserId, _currentUserService.IsAdmin);
                 return Ok(new { message = " The user was successfully updated." });
             }
             catch (KeyNotFoundException ex)
@@ -74,11 +73,10 @@ namespace TodoList.Controllers
         [HttpDelete("delete/{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var isAdmin = User.IsInRole(RolesConst.ADMIN_ROLE) || User.IsInRole(RolesConst.SUPER_ADMIN_ROLE);
             try
             {
 
-                await _userService.DeleteAsync(id, CurrentuserId, isAdmin);
+                await _userService.DeleteAsync(id, _currentUserService.UserId, _currentUserService.IsAdmin);
                 return Ok(new { message = "The user has been deleted successfully" });
             }
             catch (KeyNotFoundException ex)

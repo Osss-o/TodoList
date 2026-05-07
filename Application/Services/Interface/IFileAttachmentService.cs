@@ -14,7 +14,6 @@ namespace Application.Services.Interface
         Task<List<FileAttachmentListDto>> GetAllAsync(FileAttachmentFilterDto filter, int currentUserId, bool isAdmin);
         Task CreateAsync(FileAttachmentCreateDto dto,int currentUserId);
         Task CreateManyAsync(List<IFormFile>files,int todoId,int currentUserId);
-        Task UpdateAsync(int id,FileAttachmentUpdateDto fileAttachment, int currentUserId, bool isAdmin);
         Task ReplaceAsync(int oldFileId, IFormFile newFile, int currentUserId);
         Task DeleteAsync(int id, int currentUserId, bool isAdmin);
     }

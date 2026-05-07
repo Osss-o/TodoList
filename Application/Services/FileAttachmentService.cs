@@ -112,26 +112,6 @@ namespace Application.Services
             }
         }
 
-        public async Task UpdateAsync(int id, FileAttachmentUpdateDto fileAttachment, int currentUserId, bool isAdmin)
-        {
-            var query = _fileRepd.GetAll().Include(f => f.Todo);
-
-            var file = isAdmin
-                ? await query.FirstOrDefaultAsync(f => f.Id == id)
-                : await query.FirstOrDefaultAsync(f => f.Id == id && f.Todo.UserId == currentUserId);
-
-            if (file == null)
-                throw new KeyNotFoundException("File not found or access denied.");
-
-            file.FileName = fileAttachment.FileName;
-            if (!string.IsNullOrEmpty(fileAttachment.ContentType))
-                file.ContentType = fileAttachment.ContentType;
-            if (fileAttachment.FileSize.HasValue)
-                file.FileSize = fileAttachment.FileSize.Value;
-
-            _fileRepd.Update(file);
-            await _fileRepd.SaveChanges();
-        }
 
         public async Task ReplaceAsync(int oldFileId, IFormFile newFile, int currentUserId)
         {
@@ -208,7 +188,7 @@ namespace Application.Services
                 throw new InvalidOperationException("File size exceeds the maximum allowed limit of 2 MB.");
           
             var rootPath = _env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
-            var uploadsFolder = Path.Combine(_env.WebRootPath, "uploads");
+            var uploadsFolder = Path.Combine(rootPath, "uploads");
           
             if (!Directory.Exists(uploadsFolder))
                 Directory.CreateDirectory(uploadsFolder);

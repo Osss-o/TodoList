@@ -78,6 +78,7 @@ builder.Services.AddSwaggerGen(c =>
 
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 builder.Services.AddScoped(typeof(IAuthService),typeof(AuthService));
+builder.Services.AddScoped(typeof(ICurrentUserService),typeof(CurrentUserService));
 builder.Services.AddScoped(typeof(ICategoryService), typeof(CategoryService));
 builder.Services.AddScoped(typeof(ITodoService), typeof(TodoService));
 builder.Services.AddScoped(typeof(IUserService), typeof(UserService));
