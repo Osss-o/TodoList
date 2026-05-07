@@ -82,14 +82,8 @@ builder.Services.AddScoped(typeof(ICurrentUserService),typeof(CurrentUserService
 builder.Services.AddScoped(typeof(ICategoryService), typeof(CategoryService));
 builder.Services.AddScoped(typeof(ITodoService), typeof(TodoService));
 builder.Services.AddScoped(typeof(IUserService), typeof(UserService));
-builder.Services.AddScoped<IFileAttachmentService>(sp =>
-{
-    var fileRepo = sp.GetRequiredService<IGenericRepository<FileAttachment>>();
-    var todoRepo = sp.GetRequiredService<IGenericRepository<Todo>>();
-    var env = sp.GetRequiredService<IWebHostEnvironment>();
-    var context = sp.GetRequiredService<TodoListDbContext>();
-    return new FileAttachmentService(fileRepo, todoRepo, env, context);
-});
+builder.Services.AddScoped(typeof(IFileAttachmentService), typeof(FileAttachmentService));
+
 
 // Add services to the container.
 
