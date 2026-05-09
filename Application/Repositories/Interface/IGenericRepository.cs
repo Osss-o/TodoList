@@ -10,7 +10,7 @@ namespace Application.Repositories.Interface
     public interface IGenericRepository<T> where T : class
     {
         Task<T> GetById(int id);
-        IQueryable<T> GetAll();
+        IQueryable<T> GetQuery();
         Task Insert(T entity);
         Task InsertRange(List<T> entities);
         void Update(T entity);

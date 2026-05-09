@@ -52,7 +52,7 @@ namespace TodoList.Controllers
 
             try
             {
-                await _userService.UpdateAsync(userUpdateDto, id, _currentUserService.UserId, _currentUserService.IsAdmin);
+                await _userService.UpdateAsync(userUpdateDto);
                 return Ok(new { message = " The user was successfully updated." });
             }
             catch (KeyNotFoundException ex)
@@ -73,10 +73,11 @@ namespace TodoList.Controllers
         [HttpDelete("delete/{id}")]
         public async Task<IActionResult> Delete(int id)
         {
+            var isAdmin = User.IsInRole(RolesConst.ADMIN_ROLE) || User.IsInRole(RolesConst.SUPER_ADMIN_ROLE);
             try
             {
 
-                await _userService.DeleteAsync(id, _currentUserService.UserId, _currentUserService.IsAdmin);
+                await _userService.DeleteAsync(id);
                 return Ok(new { message = "The user has been deleted successfully" });
             }
             catch (KeyNotFoundException ex)
@@ -109,7 +110,7 @@ namespace TodoList.Controllers
         [HttpGet("GetAll")]
         public async Task<IActionResult> GetAll([FromQuery] UserFilterDto filter)
         {
-            var users = await _userService.GetAllAsync(filter);
+            var users = await _userService.GetQueryAsync(filter);
             return Ok(users);
         }
 

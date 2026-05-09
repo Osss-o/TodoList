@@ -16,19 +16,28 @@ namespace Application.Services
         private readonly IGenericRepository<Todo> _todoRepo;
         private readonly IGenericRepository<Category> _categoryRepo;
         private readonly IFileAttachmentService _fileService;
+        private readonly ICurrentUserService _currentUserService;
         public TodoService(
             IGenericRepository<Todo> todoRepo,
             IGenericRepository<Category> categoryRepo,
-            IFileAttachmentService fileService)
+            IFileAttachmentService fileService,
+            ICurrentUserService currentUserService)
 
         {
             _todoRepo = todoRepo;
             _categoryRepo = categoryRepo;
             _fileService = fileService;
+            _currentUserService = currentUserService;
         }
 
-        public async Task CreateAsync(TodoCreateDto todo, int userId)
+        public async Task CreateAsync(TodoCreateDto todo)
         {
+            if(_currentUserService.IsAdmin)
+            {
+                throw new UnauthorizedAccessException("Admin users cannot create todos.");
+            }
+            var userId = _currentUserService.UserId;
+
             if (todo.DueDate.HasValue && todo.DueDate.Value.Date < DateTime.UtcNow.Date)
                 throw new InvalidOperationException("Its due date cannot be determined in the past.");
 
@@ -60,17 +69,20 @@ namespace Application.Services
                 {
                     TodoId = todoObj.Id,
                     File = todo.File
-                }, userId);
+                });
             }
             if (todo.Files != null && todo.Files.Any())
             {
-                await _fileService.CreateManyAsync(todo.Files, todoObj.Id, userId);
+                await _fileService.CreateManyAsync(todo.Files, todoObj.Id);
             }
 
         }
 
-        public async Task DeleteAsync(int id, int userId, bool isAdmin = false)
+        public async Task DeleteAsync(int id)
         {
+            var userId = _currentUserService.UserId;
+            var isAdmin = _currentUserService.IsAdmin;
+
             var spec = new TodoByIdSpecs(id, userId, isAdmin);
             var todo = await _todoRepo.GetEntityWithSpec(spec);
 
@@ -79,7 +91,7 @@ namespace Application.Services
 
             foreach (var file in todo.Attachments)
             {
-                await _fileService.DeleteAsync(file.Id, userId, isAdmin);
+                await _fileService.DeleteAsync(file.Id);
             }
 
             await _todoRepo.Delete(todo);
@@ -87,8 +99,10 @@ namespace Application.Services
 
         }
 
-        public async Task<List<TodoListDto>> GetAllAsync(TodoFilterDto filter, int userId)
+        public async Task<List<TodoListDto>> GetQueryAsync(TodoFilterDto filter)
         { 
+            var userId = _currentUserService.UserId;
+
             filter.PageNumber = 1;
             filter.PageSize = int.MaxValue;
 
@@ -113,8 +127,10 @@ namespace Application.Services
         }
 
 
-        public async Task<TodoListDto?> GetByIdAsync(int id, int userId, bool isAdmin = false)
+        public async Task<TodoListDto?> GetByIdAsync(int id)
         {
+            var userId = _currentUserService.UserId;
+            var isAdmin = _currentUserService.IsAdmin;
 
             var spec = new TodoByIdSpecs(id, userId, isAdmin);
             var todo = await _todoRepo.GetEntityWithSpec(spec);
@@ -140,8 +156,11 @@ namespace Application.Services
 
         }
 
-        public async Task<PagedResultDto<TodoListDto>> SearchAsync(TodoFilterDto filter, int userId, bool isAdmin = false)
+        public async Task<PagedResultDto<TodoListDto>> SearchAsync(TodoFilterDto filter)
         {
+            var userId = _currentUserService.UserId;
+            var isAdmin = _currentUserService.IsAdmin;
+
             var spec = new TodoWithFiltersSpecs(filter, userId, isAdmin);
 
             var todos = await _todoRepo.ListWithSpecAsync(spec);
@@ -187,9 +206,12 @@ namespace Application.Services
             };
         }
 
-        public async Task UpdateAsync(int id, TodoUpdateDto todo, int userId, bool isAdmin = false)
+        public async Task UpdateAsync(int id, TodoUpdateDto todo)
         {
-            var todoObj = await _todoRepo.GetAll()
+            var userId = _currentUserService.UserId;
+            var isAdmin = _currentUserService.IsAdmin;
+
+            var todoObj = await _todoRepo.GetQuery()
                 .FirstOrDefaultAsync(x => x.Id == id && (isAdmin || x.UserId == userId));
 
             if (todoObj == null)

@@ -14,28 +14,21 @@ namespace TodoList.Controllers
     public class TodoController : ControllerBase
     {
         private readonly ITodoService _todoService;
-        private readonly ICurrentUserService _currentUserService;
 
-        public TodoController(ITodoService todoService, ICurrentUserService currentUserService)
+        public TodoController(ITodoService todoService)
         {
             _todoService = todoService;
-            _currentUserService = currentUserService;
         }
 
       
         [HttpPost("Create")]
         public async Task<IActionResult> Create([FromForm] TodoCreateDto todoDto)
         {
-            if (_currentUserService.IsAdmin)
-            {
-                return StatusCode(403, new {
-                    message = "Admins are restricted from creating personal tasks."
-                });
-            }
+           
 
             try
             {
-                await _todoService.CreateAsync(todoDto, _currentUserService.UserId);
+                await _todoService.CreateAsync(todoDto);
 
                 return Ok(new { message = "Todo created successfully" });
             }
@@ -59,7 +52,7 @@ namespace TodoList.Controllers
 
             try
             {
-                await _todoService.UpdateAsync(id, todoUpdateDto, _currentUserService.UserId, _currentUserService.IsAdmin);
+                await _todoService.UpdateAsync(id, todoUpdateDto);
                 return Ok(new { message = "Todo updated successfully" });
             }
             catch (KeyNotFoundException ex)
@@ -82,7 +75,7 @@ namespace TodoList.Controllers
 
             try
             {
-                await _todoService.DeleteAsync(id, _currentUserService.UserId, _currentUserService.IsAdmin);
+                await _todoService.DeleteAsync(id);
                 return Ok(new { message = "Todo deleted successfully" });
             }
             catch (KeyNotFoundException ex)
@@ -99,23 +92,23 @@ namespace TodoList.Controllers
         public async Task<IActionResult> GetById(int id)
         {
 
-            var todo = await _todoService.GetByIdAsync(id, _currentUserService.UserId);
+            var todo = await _todoService.GetByIdAsync(id);
             if (todo == null)
             {
                 return NotFound(new { message = $"Todo with ID {id} not found" });
             }
             return Ok(todo);
         }
-        [HttpGet("GetAll")]
-        public async Task<IActionResult> GetAll([FromQuery] TodoFilterDto filter)
+        [HttpGet("GetQuery")]
+        public async Task<IActionResult>GetQuery([FromQuery] TodoFilterDto filter)
         {
-            var todos = await _todoService.GetAllAsync(filter, _currentUserService.UserId);
+            var todos = await _todoService.GetQueryAsync(filter);
             return Ok(todos);
         }
         [HttpGet("Search")]
         public async Task<IActionResult> Search([FromQuery] TodoFilterDto filter)
         {
-            var result = await _todoService.SearchAsync(filter, _currentUserService.UserId, _currentUserService.IsAdmin);
+            var result = await _todoService.SearchAsync(filter);
             return Ok(result);
         }
     }

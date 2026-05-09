@@ -11,10 +11,10 @@ namespace Application.Services.Interface
     public interface IUserService
     {
         Task <UserListDto?> GetByIdAsync(int id);
-        Task<List<UserListDto>> GetAllAsync(UserFilterDto fitler);
+        Task<List<UserListDto>> GetQueryAsync(UserFilterDto fitler);
         Task CreateAsync(UserCreateDto user);
-        Task UpdateAsync(UserUpdateDto user,int id,int currentUserId, bool isAdmin);
-        Task DeleteAsync(int id, int currentUserId, bool isAdmin);
+        Task UpdateAsync(UserUpdateDto user);
+        Task DeleteAsync(int id);
         Task PromoteToAdminAsync(int id);
         Task DemoteFromAdminAsync(int id,RoleEnum role);
     }

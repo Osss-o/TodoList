@@ -14,22 +14,28 @@ namespace Application.Services
         private readonly IGenericRepository<Todo> _todoRepo;
         private readonly IWebHostEnvironment _env;
         private readonly DbContext _dbContext;
+        private readonly ICurrentUserService _currentUserService;
 
         public FileAttachmentService(
             IGenericRepository<FileAttachment> fileRepd,
             IGenericRepository<Todo> todoRepo,
             IWebHostEnvironment env,
-            DbContext dbContext)
+            DbContext dbContext,
+            ICurrentUserService currentUserService)
         {
             _fileRepd = fileRepd;
             _todoRepo = todoRepo;
             _env = env;
             _dbContext = dbContext;
+            _currentUserService = currentUserService;
         }
 
-        public async Task<FileAttachmentListDto?> GetByIdAsync(int id, int currentUserId, bool isAdmin)
+        public async Task<FileAttachmentListDto?> GetByIdAsync(int id)
         {
-            var query = _fileRepd.GetAll().Include(f => f.Todo);
+            var currentUserId = _currentUserService.UserId;
+            var isAdmin =_currentUserService.IsAdmin;
+
+            var query = _fileRepd.GetQuery().Include(f => f.Todo);
 
             var file = isAdmin
                 ? await query.FirstOrDefaultAsync(f => f.Id == id)
@@ -48,11 +54,14 @@ namespace Application.Services
                 FileSize = file.FileSize,
                 CreatedAt = file.CreatedAt
             };
+
         }
 
-        public async Task<List<FileAttachmentListDto>> GetAllAsync(FileAttachmentFilterDto filter, int currentUserId, bool isAdmin)
+        public async Task<List<FileAttachmentListDto>> GetQueryAsync(FileAttachmentFilterDto filter)
         {
-           IQueryable<FileAttachment> query = _fileRepd.GetAll().Include(f => f.Todo);
+            var currentUserId = _currentUserService.UserId;
+            var isAdmin = _currentUserService.IsAdmin;
+           IQueryable<FileAttachment> query = _fileRepd.GetQuery().Include(f => f.Todo);
 
             if (!isAdmin)
                 query = query.Where(f => f.Todo.UserId == currentUserId);
@@ -81,14 +90,18 @@ namespace Application.Services
             }).ToList();
         }
 
-        public async Task CreateAsync(FileAttachmentCreateDto dto, int currentUserId)
+        public async Task CreateAsync(FileAttachmentCreateDto dto)
         {
-            await SaveFile(dto.File, dto.TodoId, currentUserId);
+            var currentUserId = _currentUserService.UserId;
+
+            await SaveFile(dto.File, dto.TodoId);
         }
 
-        public async Task CreateManyAsync(List<IFormFile> files, int todoId, int currentUserId)
+        public async Task CreateManyAsync(List<IFormFile> files, int todoId)
         {
-            var todo = await _todoRepo.GetAll()
+            var currentUserId = _currentUserService?.UserId;
+
+            var todo = await _todoRepo.GetQuery()
                 .FirstOrDefaultAsync(t => t.Id == todoId && t.UserId == currentUserId);
 
             if (todo == null)
@@ -113,9 +126,11 @@ namespace Application.Services
         }
 
 
-        public async Task ReplaceAsync(int oldFileId, IFormFile newFile, int currentUserId)
+        public async Task ReplaceAsync(int oldFileId, IFormFile newFile)
         {
-            var oldFile = await _fileRepd.GetAll()
+            var  currentUserId = _currentUserService.UserId;
+
+            var oldFile = await _fileRepd.GetQuery()
                 .Include(f => f.Todo)
                 .FirstOrDefaultAsync(f => f.Id == oldFileId && f.Todo.UserId == currentUserId);
 
@@ -133,7 +148,7 @@ namespace Application.Services
                 _fileRepd.Delete(oldFile);
                 await _fileRepd.SaveChanges();
 
-                await SaveFile(newFile, oldFile.TodoId, currentUserId);
+                await SaveFile(newFile, oldFile.TodoId);
 
                 await transaction.CommitAsync();
             }
@@ -144,9 +159,12 @@ namespace Application.Services
             }
         }
 
-        public async Task DeleteAsync(int id, int currentUserId, bool isAdmin)
+        public async Task DeleteAsync(int id)
         {
-            var query = _fileRepd.GetAll().Include(f => f.Todo);
+            var currentUserId= _currentUserService.UserId;
+            var isAdmin= _currentUserService.IsAdmin;
+
+            var query = _fileRepd.GetQuery().Include(f => f.Todo);
 
             var file = isAdmin
                 ? await query.FirstOrDefaultAsync(f => f.Id == id)
@@ -163,9 +181,12 @@ namespace Application.Services
             await _fileRepd.SaveChanges();
         }
 
-        private async Task SaveFile(IFormFile file, int todoId, int currentUserId)
+        private async Task SaveFile(IFormFile file, int todoId)
         {
-            var todo = await _todoRepo.GetAll()
+            var currentUserId = _currentUserService.UserId;
+
+
+            var todo = await _todoRepo.GetQuery()
                 .FirstOrDefaultAsync(t => t.Id == todoId && t.UserId == currentUserId);
 
             if (todo == null)

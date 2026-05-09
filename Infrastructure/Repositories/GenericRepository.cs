@@ -23,7 +23,7 @@ namespace Infrastructure.Repositories
         {
             return await _todolistDbcontext.Set<T>().FindAsync(id);
         }
-        public IQueryable<T> GetAll()
+        public IQueryable<T> GetQuery()
         {
             return _todolistDbcontext.Set<T>();
         }

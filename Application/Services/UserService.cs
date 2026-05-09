@@ -6,12 +6,7 @@ using Domain.Entities;
 using Domain.Entities.Enums;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace Application.Services
 {
@@ -20,12 +15,17 @@ namespace Application.Services
         private readonly IGenericRepository<User> _userRepo;
         private readonly IGenericRepository<Todo> _todoRepo;
         private readonly IGenericRepository<Category> _gategoryRepo;
+        private readonly ICurrentUserService _currentUserService;
 
-        public UserService(IGenericRepository<User> userRepo, IGenericRepository<Todo> todoRepo, IGenericRepository<Category> gategoryRepo)
+        public UserService(IGenericRepository<User> userRepo,
+            IGenericRepository<Todo> todoRepo,
+            IGenericRepository<Category> gategoryRepo,
+            ICurrentUserService currentUserService)
         {
             _userRepo = userRepo;
             _todoRepo = todoRepo;
             _gategoryRepo = gategoryRepo;
+            _currentUserService = currentUserService;
         }
 
         public async Task CreateAsync(UserCreateDto user)
@@ -38,7 +38,7 @@ namespace Application.Services
             if (!Regex.IsMatch(user.Email, emailPattern))
                 throw new Exception("Email is not valid.");
 
-            var exists = await _userRepo.GetAll()
+            var exists = await _userRepo.GetQuery()
                 .AnyAsync(u => u.Email == user.Email);
 
             if (exists)
@@ -56,9 +56,13 @@ namespace Application.Services
             await _userRepo.SaveChanges();
         }
 
-        public async Task DeleteAsync(int id, int currentUserId, bool isAdmin)
+        public async Task DeleteAsync(int id)
         {
-            var user = await _userRepo.GetAll()
+            var isAdmin = _currentUserService.IsAdmin;
+            var currentUserId = _currentUserService.UserId;
+
+
+            var user = await _userRepo.GetQuery()
                 .Include(u => u.Todos)
                 .Include(u => u.Categories)
                 .FirstOrDefaultAsync(u => u.Id == id);
@@ -68,16 +72,16 @@ namespace Application.Services
             if (user.Email == SuperAdmin.Email)
                 throw new Exception("Default admin cannot be deleted.");
 
-            if(!isAdmin && id != currentUserId)
+            if (!isAdmin && id != currentUserId)
                 throw new UnauthorizedAccessException("You don't have permission to delete this user.");
 
             _userRepo.Delete(user);
             await _userRepo.SaveChanges();
         }
 
-        public async Task<List<UserListDto>> GetAllAsync(UserFilterDto fitler)
+        public async Task<List<UserListDto>> GetQueryAsync(UserFilterDto fitler)
         {
-            var query = _userRepo.GetAll().AsNoTracking();
+            var query = _userRepo.GetQuery().AsNoTracking();
 
             if (!string.IsNullOrEmpty(fitler.UserName))
                 query = query.Where(u => u.UserName.Contains(fitler.UserName.Trim()));
@@ -103,7 +107,7 @@ namespace Application.Services
 
         public async Task<UserListDto?> GetByIdAsync(int id)
         {
-            var user = await _userRepo.GetAll()
+            var user = await _userRepo.GetQuery()
                 .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.Id == id);
 
@@ -118,12 +122,16 @@ namespace Application.Services
             };
         }
 
-        public async Task UpdateAsync(UserUpdateDto userDto, int id,int currentUserId,bool isAdmin)
+        public async Task UpdateAsync(UserUpdateDto userDto)
         {
-            if (!isAdmin && id != currentUserId)
+            var isAdmin = _currentUserService.IsAdmin;
+            var currentUserId = _currentUserService.UserId;
+
+
+            if (!isAdmin && currentUserId != currentUserId)
                 throw new UnauthorizedAccessException("You are not allowed to update this user.");
 
-            var user = await _userRepo.GetById(id);
+            var user = await _userRepo.GetById(currentUserId);
 
             if (user == null)
                 throw new Exception("User not found.");
@@ -131,7 +139,7 @@ namespace Application.Services
             if (user.Email == SuperAdmin.Email && !string.IsNullOrEmpty(userDto.Email))
             {
                 if (userDto.Email.Trim().ToLower() != SuperAdmin.Email.ToLower())
-                throw new Exception("Default admin cannot be updated.");
+                    throw new Exception("Default admin cannot be updated.");
             }
             if (!string.IsNullOrEmpty(userDto.UserName))
 
@@ -145,8 +153,8 @@ namespace Application.Services
 
                 var normalizedEmail = userDto.Email.Trim().ToLower();
 
-                var exists = await _userRepo.GetAll()
-                    .AnyAsync(u => u.Email == normalizedEmail && u.Id != id);
+                var exists = await _userRepo.GetQuery()
+                    .AnyAsync(u => u.Email == normalizedEmail && u.Id != user.Id);
 
                 if (exists)
                     throw new Exception("Email is already in use.");
@@ -169,13 +177,13 @@ namespace Application.Services
             if (user.Role == RoleEnum.Admin)
                 throw new Exception("User is already an admin.");
 
-            var hasTasks = await _todoRepo.GetAll()
+            var hasTasks = await _todoRepo.GetQuery()
                .AnyAsync(t => t.UserId == id);
 
             if (hasTasks)
                 throw new Exception("Connot promote user : This account has active tasks.Admin accounts must be clean.");
 
-            var hasCategories = await _gategoryRepo.GetAll()
+            var hasCategories = await _gategoryRepo.GetQuery()
                 .AnyAsync(c => c.UserId == id);
 
             if (hasCategories)
@@ -188,11 +196,11 @@ namespace Application.Services
             await _userRepo.SaveChanges();
         }
 
-        public async Task DemoteFromAdminAsync(int id,RoleEnum role)
+        public async Task DemoteFromAdminAsync(int id, RoleEnum role)
         {
-            if (role !=RoleEnum.SuperAdmin)
+            if (role != RoleEnum.SuperAdmin)
                 throw new UnauthorizedAccessException("Only super admins can demote admins.");
-          
+
             var user = await _userRepo.GetById(id);
 
             if (user == null)

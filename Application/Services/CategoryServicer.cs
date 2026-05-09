@@ -10,18 +10,21 @@ namespace Application.Services
     {
         private readonly IGenericRepository<Category> _categoryRepo;
         private readonly IGenericRepository<Todo> _todoRepo;
+        private readonly ICurrentUserService _currentUserService;
 
-        public CategoryService(IGenericRepository<Category> categoryRepo, IGenericRepository<Todo> todoRepo)
+        public CategoryService(IGenericRepository<Category> categoryRepo, IGenericRepository<Todo> todoRepo, ICurrentUserService currentUserService)
         {
             _categoryRepo = categoryRepo;
             _todoRepo = todoRepo;
+            _currentUserService = currentUserService;
         }
 
-        public async Task CreateAsync(CategoryCreateDto categoryDto, int userId)
+        public async Task CreateAsync(CategoryCreateDto categoryDto )
         {
+            var userId = _currentUserService.UserId;
             var normalizedName = categoryDto.Name.Trim().ToLower();
 
-            var exists = await _categoryRepo.GetAll()
+            var exists = await _categoryRepo.GetQuery()
                 .AnyAsync(c => c.Name.ToLower() == normalizedName && c.UserId==userId);
         
             if (exists)
@@ -40,18 +43,20 @@ namespace Application.Services
 
         }
 
-        public async Task DeleteAsync(int id, int currentUserId, bool isAdmin, bool deleteLinkedTodos = false)
+        public async Task DeleteAsync(int id, bool deleteLinkedTodos = false)
         {
-            var category = await _categoryRepo.GetAll()
-                .FirstOrDefaultAsync(c=>c.Id == id &&(isAdmin||c.UserId == currentUserId));
+            var currentUserId = _currentUserService.UserId;
+            var isAdmin = _currentUserService.IsAdmin;
 
+            var category = await _categoryRepo.GetQuery()
+                .FirstOrDefaultAsync(c=>c.Id == id &&(isAdmin||c.UserId == currentUserId));
 
             if (category == null)
             {
                 throw new KeyNotFoundException($"Category with ID {id} not found.");
             }
 
-            var todos = await _todoRepo.GetAll()
+            var todos = await _todoRepo.GetQuery()
                 .Where(t => t.CategoryId == id && (isAdmin || t.UserId == currentUserId))
                 .ToListAsync();
             if (deleteLinkedTodos)
@@ -77,9 +82,11 @@ namespace Application.Services
             await _categoryRepo.SaveChanges();
         }
 
-        public async Task<List<CategoryListDto>> GetAllAsync(CategoryFilterDto filter, int userId, bool isAdmin = false)
+        public async Task<List<CategoryListDto>> GetQueryAsync(CategoryFilterDto filter)
         {
-            var query = _categoryRepo.GetAll()
+            var userId = _currentUserService.UserId;
+            var isAdmin = _currentUserService.IsAdmin;
+            var query = _categoryRepo.GetQuery()
                 .AsNoTracking();
 
             if (!isAdmin)
@@ -97,14 +104,16 @@ namespace Application.Services
             {
                 Id = c.Id,
                 Name = c.Name,
-                TodoCount= _todoRepo.GetAll()
+                TodoCount= _todoRepo.GetQuery()
                 .Count(t=>t.CategoryId == c.Id &&(isAdmin || t.UserId == userId))
             }).ToListAsync();
         }
 
-        public async Task<CategoryListDto?> GetByIdAsync(int id, int userId)
+        public async Task<CategoryListDto?> GetByIdAsync(int id)
         {
-            var category = await _categoryRepo.GetAll()
+            var userId = _currentUserService.UserId;
+
+            var category = await _categoryRepo.GetQuery()
                 .FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId);
             if (category == null) return null;
 
@@ -115,9 +124,11 @@ namespace Application.Services
             };
         }
 
-        public async Task UpdateAsync(int id,int userId, CategoryUpdateDto categoryDto)
+        public async Task UpdateAsync(int id, CategoryUpdateDto categoryDto)
         {
-            var categoryinput = await _categoryRepo.GetAll()
+            var userId = _currentUserService.UserId;
+
+            var categoryinput = await _categoryRepo.GetQuery()
                 .FirstOrDefaultAsync(c => c.Id == id && c.UserId==userId);
 
             if (categoryinput == null)
@@ -128,7 +139,7 @@ namespace Application.Services
             {
                 var normalizedName = categoryDto.Name.Trim().ToLower();
 
-                var exists = await _categoryRepo.GetAll()
+                var exists = await _categoryRepo.GetQuery()
                     .AnyAsync(c => c.Id != id &&
                     c.UserId == userId &&
                     c.Name.ToLower() == normalizedName);

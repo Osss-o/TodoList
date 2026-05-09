@@ -10,11 +10,11 @@ namespace Application.Services.Interface
 {
     public interface ITodoService
     {
-        Task<TodoListDto?> GetByIdAsync(int id,int userId, bool isAdmin = false);
-        Task<List<TodoListDto>> GetAllAsync(TodoFilterDto filter,int userId);
-        Task CreateAsync(TodoCreateDto todo, int userId);
-        Task UpdateAsync(int id, TodoUpdateDto todo, int userId, bool isAdmin = false);
-        Task DeleteAsync(int id, int userId, bool isAdmin = false);
-        Task<PagedResultDto<TodoListDto>> SearchAsync(TodoFilterDto filter, int userId, bool isAdmin = false);
+        Task<TodoListDto?> GetByIdAsync(int id);
+        Task<List<TodoListDto>> GetQueryAsync(TodoFilterDto filter);
+        Task CreateAsync(TodoCreateDto todo);
+        Task UpdateAsync(int id, TodoUpdateDto todo);
+        Task DeleteAsync(int id);
+        Task<PagedResultDto<TodoListDto>> SearchAsync(TodoFilterDto filter);
     }
 }

@@ -13,12 +13,10 @@ namespace TodoList.Controllers
     public class CategoryController : ControllerBase
     {
         private readonly ICategoryService _categoryService;
-        private readonly ICurrentUserService _currentUserService;
-
-        public CategoryController(ICategoryService categoryService, ICurrentUserService currentUserService)
+       
+        public CategoryController(ICategoryService categoryService)
         {
             _categoryService = categoryService;
-            _currentUserService = currentUserService;
         }
 
         [Authorize]
@@ -28,7 +26,7 @@ namespace TodoList.Controllers
             try
             {
 
-                await _categoryService.CreateAsync(categoryDto, _currentUserService.UserId);
+                await _categoryService.CreateAsync(categoryDto);
                 return Ok(new { message = "Category created successfully" });
             }
             catch (InvalidOperationException ex)
@@ -47,7 +45,7 @@ namespace TodoList.Controllers
         {
             try
             {
-                await _categoryService.DeleteAsync(id, _currentUserService.UserId,_currentUserService.IsAdmin, deleteLinkedTodos);
+                await _categoryService.DeleteAsync(id,deleteLinkedTodos);
                 return Ok(new { message = "Category deleted successfully" });
             }
             catch (KeyNotFoundException ex)
@@ -67,7 +65,7 @@ namespace TodoList.Controllers
         {
             try
             {
-                await _categoryService.UpdateAsync(id,_currentUserService.UserId, categoryDto);
+                await _categoryService.UpdateAsync(id,categoryDto);
                 return Ok(new { message = "Category updated successfully" });
             }
             catch (KeyNotFoundException ex)
@@ -85,11 +83,11 @@ namespace TodoList.Controllers
         }
 
         [Authorize]
-        [HttpGet("GetAll")]
-        public async Task<IActionResult> GetALl([FromQuery] CategoryFilterDto filter)
+        [HttpGet("GetQuery")]
+        public async Task<IActionResult> GetQuery([FromQuery] CategoryFilterDto filter)
         {
 
-            var categories = await _categoryService.GetAllAsync(filter, _currentUserService.UserId, _currentUserService.IsAdmin);
+            var categories = await _categoryService.GetQueryAsync(filter);
             return Ok(categories);
         }
 
@@ -97,7 +95,7 @@ namespace TodoList.Controllers
         [HttpGet("GetById/{id}")]
         public async Task<IActionResult> GetById(int id)
         {
-            var category = await _categoryService.GetByIdAsync(id, _currentUserService.UserId);
+            var category = await _categoryService.GetByIdAsync(id);
             if (category == null)
             {
                 return NotFound(new { message = $"Category with ID {id} not found." });

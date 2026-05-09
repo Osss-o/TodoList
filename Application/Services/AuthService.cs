@@ -36,7 +36,7 @@ namespace Application.Services
         }
         public async Task<LoginResponseDto> LoginAsync(LoginRequestDto input)
         {
-            var user = await _userRepo.GetAll()
+            var user = await _userRepo.GetQuery()
                 .FirstOrDefaultAsync(u => u.Email.Trim().ToLower() == input.Username.Trim().ToLower()
                );
             if (user == null)
@@ -114,7 +114,7 @@ namespace Application.Services
                 refreshToken = refreshToken.Trim('"');
             }
 
-            var storedToken = await _refreshTokenRepo.GetAll()
+            var storedToken = await _refreshTokenRepo.GetQuery()
                 .Include(rt => rt.User)
                 .FirstOrDefaultAsync(rt => rt.Token == refreshToken && rt.ExpiryDate > DateTime.UtcNow);
 

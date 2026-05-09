@@ -28,7 +28,7 @@ namespace TodoList.Controllers
         {
             try
             {
-                await _fileService.CreateAsync(fileAttachment, _currentUserService.UserId);
+                await _fileService.CreateAsync(fileAttachment);
                 return Ok(new { Message = "File attachment created successfully." });
             }
             catch (InvalidOperationException ex)
@@ -53,7 +53,7 @@ namespace TodoList.Controllers
                 if (files == null || files.Count == 0)
                     return BadRequest(new { Message = "Please select at least one file." });
 
-                await _fileService.CreateManyAsync(files, todoId, _currentUserService.UserId);
+                await _fileService.CreateManyAsync(files, todoId);
                 return Ok(new { Message = $"{files.Count} files uploaded successfully." });
             }
             catch (KeyNotFoundException ex)
@@ -71,7 +71,7 @@ namespace TodoList.Controllers
         {
             try
             {
-                await _fileService.ReplaceAsync(oldFileId, newFile, _currentUserService.UserId);
+                await _fileService.ReplaceAsync(oldFileId, newFile);
                 return Ok(new { Message = "File replaced successfully." });
             }
             catch (KeyNotFoundException ex)
@@ -89,7 +89,7 @@ namespace TodoList.Controllers
         {
             try
             {
-                await _fileService.DeleteAsync(id, _currentUserService.UserId, _currentUserService.IsAdmin);
+                await _fileService.DeleteAsync(id);
                 return Ok(new { Message = "File attachment deleted successfully." });
             }
             catch (KeyNotFoundException ex)
@@ -113,7 +113,7 @@ namespace TodoList.Controllers
         {
             try
             {
-                var fileAttachment = await _fileService.GetByIdAsync(id, _currentUserService.UserId, _currentUserService.IsAdmin);
+                var fileAttachment = await _fileService.GetByIdAsync(id);
                 if (fileAttachment == null)
                 {
                     return NotFound(new { Message = $"File attachment with ID {id} not found." });
@@ -127,11 +127,11 @@ namespace TodoList.Controllers
         }
 
         [HttpGet("GetAll")]
-        public async Task<IActionResult> GetAll([FromQuery] FileAttachmentFilterDto filter)
+        public async Task<IActionResult> GetQurey([FromQuery] FileAttachmentFilterDto filter)
         {
             try
             {
-                var fileAttachments = await _fileService.GetAllAsync(filter, _currentUserService.UserId, _currentUserService.IsAdmin);
+                var fileAttachments = await _fileService.GetQueryAsync(filter);
                 return Ok(fileAttachments);
             }
             catch (Exception ex)
@@ -143,7 +143,7 @@ namespace TodoList.Controllers
         [HttpGet("Download/{id}")]
         public async Task<IActionResult> Dwonload(int id)
         {
-            var fileAttachmentD = await _fileService.GetByIdAsync(id, _currentUserService.UserId, _currentUserService.IsAdmin);
+            var fileAttachmentD = await _fileService.GetByIdAsync(id);
 
             if (fileAttachmentD == null)
                 return NotFound(new { Message = $"File attachment with ID {id} not found" });
