@@ -16,15 +16,21 @@ namespace Infrastructure.Repositories
 
             if (spec.Criteria != null)
             {
-                query = query.Where(spec.Criteria);
+                foreach (var criteria in spec.Criterias)
+                {
+                    query = query.Where(criteria);
+                }
             }
-            if (spec.OrderBy != null)
+           if (spec.OrderBy != null)
             {
-                query = query.OrderBy(spec.OrderBy);
-            }
-            else if (spec.OrderByDescending != null)
-            {
-                query = query.OrderByDescending(spec.OrderByDescending);
+                if(spec.IsDescending)
+                {
+                    query = query.OrderByDescending(spec.OrderBy);
+                }
+                else
+                {
+                    query = query.OrderBy(spec.OrderBy);
+                }
             }
             if (spec.IsPagingEnabled)
             {

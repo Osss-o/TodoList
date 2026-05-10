@@ -83,7 +83,9 @@ namespace Application.Services
             var userId = _currentUserService.UserId;
             var isAdmin = _currentUserService.IsAdmin;
 
-            var spec = new TodoByIdSpecs(id, userId, isAdmin);
+            var specUserId = isAdmin?(int?)null: userId;
+
+            var spec = TodoSpecsFactory.GetByIdSpec(id,specUserId);
             var todo = await _todoRepo.GetEntityWithSpec(spec);
 
             if (todo == null)
@@ -106,7 +108,7 @@ namespace Application.Services
             filter.PageNumber = 1;
             filter.PageSize = int.MaxValue;
 
-            var spec = new TodoWithFiltersSpecs(filter, userId,isAdmin: false);
+            var spec = TodoSpecsFactory.GetWithFiltersSpec(filter, userId);
             var todos = await _todoRepo.ListWithSpecAsync(spec);
              
             return todos.Select(x => new TodoListDto
@@ -132,7 +134,9 @@ namespace Application.Services
             var userId = _currentUserService.UserId;
             var isAdmin = _currentUserService.IsAdmin;
 
-            var spec = new TodoByIdSpecs(id, userId, isAdmin);
+            var specUserId = isAdmin?(int?)null:userId;
+            var spec = TodoSpecsFactory.GetByIdSpec(id, specUserId);
+
             var todo = await _todoRepo.GetEntityWithSpec(spec);
 
             if (todo == null) return null;
@@ -160,9 +164,9 @@ namespace Application.Services
         {
             var userId = _currentUserService.UserId;
             var isAdmin = _currentUserService.IsAdmin;
+            var specUserId = isAdmin ? (int?)null : userId;
 
-            var spec = new TodoWithFiltersSpecs(filter, userId, isAdmin);
-
+            var spec = TodoSpecsFactory.GetWithFiltersSpec(filter, specUserId);
             var todos = await _todoRepo.ListWithSpecAsync(spec);
 
             var countFilter = new TodoFilterDto
@@ -179,7 +183,7 @@ namespace Application.Services
                 PageSize = int.MaxValue
             };
 
-            var countSpec = new TodoWithFiltersSpecs(countFilter, userId, isAdmin);
+            var countSpec = TodoSpecsFactory.GetWithFiltersSpec(countFilter);
             var totalCount = await _todoRepo.CountAsync(countSpec);
 
 
