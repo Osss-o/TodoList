@@ -22,25 +22,54 @@ namespace Application.Specifications.TodoSpecs
         }
         public static ISpecification<Todo> GetWithFiltersSpec(TodoFilterDto filter, int? userId = null)
         {
-            var bulider = new SpecificationBuilder<Todo>()
-                .Where(t =>
-                (string.IsNullOrEmpty(filter.Title) || t.Title.Contains(filter.Title)) &&
-                (!filter.CategoryId.HasValue || t.CategoryId == filter.CategoryId.Value) &&
-                (string.IsNullOrEmpty(filter.Search) || t.Title.Contains(filter.Search)
-                || (t.Description != null && t.Description.Contains(filter.Search))) &&
-                (!filter.Status.HasValue || t.Status == filter.Status.Value) &&
-                (!filter.Priority.HasValue || t.Priority == filter.Priority.Value) &&
-                (!filter.RecurrenceType.HasValue || t.RecurrenceType == filter.RecurrenceType.Value) &&
-                (!filter.FromeDate.HasValue || t.CreatedAt >= filter.FromeDate.Value) &&
-                (!filter.ToDate.HasValue || t.CreatedAt <= filter.ToDate.Value))
-                .Include(t => t.Category)
-                .Include(t => t.Attachments)
-                .Include(testc => testc.User);
+            var bulider = new SpecificationBuilder<Todo>();
+
+            bulider.Include(t => t.Category)
+              .Include(t => t.Attachments)
+              .Include(t => t.User);
+
             if (userId.HasValue)
             {
                 bulider.Where(t => t.UserId == userId.Value);
             }
+            if (!string.IsNullOrEmpty(filter.Title))
+            {
+                bulider.Where(t => t.Title.Contains(filter.Title));
+            }
+            if (filter.CategoryId.HasValue)
+            {
+                bulider.Where(t => t.CategoryId == filter.CategoryId.Value);
+            }
+            if (!string.IsNullOrEmpty(filter.Search))
+            {
+                bulider.Where(t => t.Title.Contains(filter.Search) || t.Description.Contains(filter.Search));
+            }
+            if (filter.Status.HasValue)
+            {
+                bulider.Where(t => t.Status == filter.Status.Value);
+            }
+            if (filter.Priority.HasValue)
+            {
+                bulider.Where(t => t.Priority == filter.Priority.Value);
+            }
+            if (filter.RecurrenceType.HasValue)
+            {
+                bulider.Where(t => t.RecurrenceType == filter.RecurrenceType.Value);
+            }
+            if (filter.FromeDate.HasValue)
+            {
+                bulider.Where(t => t.ExpiryDate >= filter.FromeDate.Value);
+            }
+            if (filter.ToDate.HasValue)
+            {
+                bulider.Where(t => t.ExpiryDate <= filter.ToDate.Value);
+            }
+            bulider.OrderBy(t => t.CreatedAt, isDescending: true)
+                .ApplyPaging((filter.PageNumber - 1) * filter.PageSize, filter.PageSize);
+
             return bulider.Build();
+
+
         }
     }
 }
