@@ -11,7 +11,7 @@ namespace Application.Services.Interface
     public interface ITodoService
     {
         Task<TodoListDto?> GetByIdAsync(int id);
-        Task<List<TodoListDto>> GetQueryAsync(TodoFilterDto filter);
+        Task<List<TodoListDto>> GetAllAsync(TodoFilterDto filter);
         Task CreateAsync(TodoCreateDto todo);
         Task UpdateAsync(int id, TodoUpdateDto todo);
         Task DeleteAsync(int id);

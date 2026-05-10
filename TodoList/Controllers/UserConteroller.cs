@@ -109,7 +109,7 @@ namespace TodoList.Controllers
         [HttpGet("GetAll")]
         public async Task<IActionResult> GetAll([FromQuery] UserFilterDto filter)
         {
-            var users = await _userService.GetQueryAsync(filter);
+            var users = await _userService.GetAllAsync(filter);
             return Ok(users);
         }
 

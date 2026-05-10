@@ -79,7 +79,7 @@ namespace Application.Services
             await _userRepo.SaveChanges();
         }
 
-        public async Task<List<UserListDto>> GetQueryAsync(UserFilterDto fitler)
+        public async Task<List<UserListDto>> GetAllAsync(UserFilterDto fitler)
         {
             var query = _userRepo.GetQuery().AsNoTracking();
 

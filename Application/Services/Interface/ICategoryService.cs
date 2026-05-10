@@ -10,7 +10,7 @@ namespace Application.Services.Interface
     public interface ICategoryService
     {
         Task<CategoryListDto?> GetByIdAsync(int id);
-        Task <List<CategoryListDto>> GetQueryAsync(CategoryFilterDto filter);
+        Task <List<CategoryListDto>> GetAllAsync(CategoryFilterDto filter);
         Task CreateAsync(CategoryCreateDto categoryDto);
         Task UpdateAsync(int id, CategoryUpdateDto category);
         Task DeleteAsync(int id,bool deleteLinkedTodos = false);

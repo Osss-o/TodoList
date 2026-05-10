@@ -11,7 +11,7 @@ namespace Application.Services.Interface
     public interface IFileAttachmentService
     {
         Task<FileAttachmentListDto?> GetByIdAsync(int id);
-        Task<List<FileAttachmentListDto>> GetQueryAsync(FileAttachmentFilterDto filter);
+        Task<List<FileAttachmentListDto>> GetAllAsync(FileAttachmentFilterDto filter);
         Task CreateAsync(FileAttachmentCreateDto dto);
         Task CreateManyAsync(List<IFormFile>files,int todoId);
         Task ReplaceAsync(int oldFileId, IFormFile newFil);

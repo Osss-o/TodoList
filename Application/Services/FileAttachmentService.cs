@@ -57,7 +57,7 @@ namespace Application.Services
 
         }
 
-        public async Task<List<FileAttachmentListDto>> GetQueryAsync(FileAttachmentFilterDto filter)
+        public async Task<List<FileAttachmentListDto>> GetAllAsync(FileAttachmentFilterDto filter)
         {
             var currentUserId = _currentUserService.UserId;
             var isAdmin = _currentUserService.IsAdmin;

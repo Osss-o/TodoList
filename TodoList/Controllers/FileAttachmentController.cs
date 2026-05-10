@@ -127,11 +127,11 @@ namespace TodoList.Controllers
         }
 
         [HttpGet("GetAll")]
-        public async Task<IActionResult> GetQurey([FromQuery] FileAttachmentFilterDto filter)
+        public async Task<IActionResult> GetAll([FromQuery] FileAttachmentFilterDto filter)
         {
             try
             {
-                var fileAttachments = await _fileService.GetQueryAsync(filter);
+                var fileAttachments = await _fileService.GetAllAsync(filter);
                 return Ok(fileAttachments);
             }
             catch (Exception ex)

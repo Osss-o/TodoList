@@ -101,7 +101,7 @@ namespace Application.Services
 
         }
 
-        public async Task<List<TodoListDto>> GetQueryAsync(TodoFilterDto filter)
+        public async Task<List<TodoListDto>> GetAllAsync(TodoFilterDto filter)
         { 
             var userId = _currentUserService.UserId;
 

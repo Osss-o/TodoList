@@ -82,7 +82,7 @@ namespace Application.Services
             await _categoryRepo.SaveChanges();
         }
 
-        public async Task<List<CategoryListDto>> GetQueryAsync(CategoryFilterDto filter)
+        public async Task<List<CategoryListDto>> GetAllAsync(CategoryFilterDto filter)
         {
             var userId = _currentUserService.UserId;
             var isAdmin = _currentUserService.IsAdmin;
