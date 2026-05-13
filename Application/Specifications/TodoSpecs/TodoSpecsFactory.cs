@@ -36,6 +36,10 @@ namespace Application.Specifications.TodoSpecs
             {
                 bulider.Where(t => t.Title.Contains(filter.Title));
             }
+            if (!string.IsNullOrEmpty(filter.UserName))
+            {
+                bulider.Where(t => t.User != null && t.User.UserName ==(filter.UserName.Trim()));
+            }
             if (filter.CategoryId.HasValue)
             {
                 bulider.Where(t => t.CategoryId == filter.CategoryId.Value);

@@ -9,6 +9,7 @@ namespace Application.Dtos.Todo
 {
     public class TodoFilterDto
     {
+        public string?UserName { get; set; }
         public string? Title { get; set; }
         public int? CategoryId { get; set; }
         public string? Search { get; set; }

@@ -1,13 +1,12 @@
-﻿using Application._ُُExtenstions;
-using Application.Dtos.FileAttachment;
+﻿using Application.Dtos.FileAttachment;
 using Application.Dtos.PagedResult;
 using Application.Dtos.Todo;
 using Application.Repositories.Interface;
 using Application.Services.Interface;
+using Application.Specifications;
 using Application.Specifications.TodoSpecs;
 using Domain.Entities;
 using Domain.Entities.Enums;
-using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services
 {
@@ -32,7 +31,7 @@ namespace Application.Services
 
         public async Task CreateAsync(TodoCreateDto todo)
         {
-            if(_currentUserService.IsAdmin)
+            if (_currentUserService.IsAdmin)
             {
                 throw new UnauthorizedAccessException("Admin users cannot create todos.");
             }
@@ -83,9 +82,9 @@ namespace Application.Services
             var userId = _currentUserService.UserId;
             var isAdmin = _currentUserService.IsAdmin;
 
-            var specUserId = isAdmin?(int?)null: userId;
+            var specUserId = isAdmin ? (int?)null : userId;
 
-            var spec = TodoSpecsFactory.GetByIdSpec(id,specUserId);
+            var spec = TodoSpecsFactory.GetByIdSpec(id, specUserId);
             var todo = await _todoRepo.GetEntityWithSpec(spec);
 
             if (todo == null)
@@ -102,7 +101,7 @@ namespace Application.Services
         }
 
         public async Task<List<TodoListDto>> GetAllAsync(TodoFilterDto filter)
-        { 
+        {
             var userId = _currentUserService.UserId;
 
             filter.PageNumber = 1;
@@ -110,22 +109,22 @@ namespace Application.Services
 
             var spec = TodoSpecsFactory.GetWithFiltersSpec(filter, userId);
             var todos = await _todoRepo.ListWithSpecAsync(spec);
-             
+
             return todos.Select(x => new TodoListDto
-                 {
-                     Id = x.Id,
-                     Title = x.Title,
-                     UserName = x.User?.UserName,
-                     Description = x.Description,
-                     CategoryName = x.Category?.Name,
-                     DueDate = x.ExpiryDate,
-                     Status = x.Status,
-                     Priority = x.Priority,
-                     RecurrenceType = x.RecurrenceType,
-                     CreatedAt =x.CreatedAt,
-                     UpdatedAt = x.UpdatedAt,
-                     HasAttachments = x.Attachments.Any()
-                 }).ToList();
+            {
+                Id = x.Id,
+                Title = x.Title,
+                UserName = x.User?.UserName,
+                Description = x.Description,
+                CategoryName = x.Category?.Name,
+                DueDate = x.ExpiryDate,
+                Status = x.Status,
+                Priority = x.Priority,
+                RecurrenceType = x.RecurrenceType,
+                CreatedAt = x.CreatedAt,
+                UpdatedAt = x.UpdatedAt,
+                HasAttachments = x.Attachments.Any()
+            }).ToList();
         }
 
 
@@ -134,7 +133,7 @@ namespace Application.Services
             var userId = _currentUserService.UserId;
             var isAdmin = _currentUserService.IsAdmin;
 
-            var specUserId = isAdmin?(int?)null:userId;
+            var specUserId = isAdmin ? (int?)null : userId;
             var spec = TodoSpecsFactory.GetByIdSpec(id, specUserId);
 
             var todo = await _todoRepo.GetEntityWithSpec(spec);
@@ -152,7 +151,7 @@ namespace Application.Services
                 Status = todo.Status,
                 Priority = todo.Priority,
                 RecurrenceType = todo.RecurrenceType,
-                CreatedAt=todo.CreatedAt,
+                CreatedAt = todo.CreatedAt,
                 UpdatedAt = todo.UpdatedAt,
                 HasAttachments = todo.Attachments.Any()
 
@@ -177,13 +176,14 @@ namespace Application.Services
                 Priority = filter.Priority,
                 RecurrenceType = filter.RecurrenceType,
                 Title = filter.Title,
+                UserName=filter.UserName,
                 FromeDate = filter.FromeDate,
                 ToDate = filter.ToDate,
-                PageNumber =1,
+                PageNumber = 1,
                 PageSize = int.MaxValue
             };
 
-            var countSpec = TodoSpecsFactory.GetWithFiltersSpec(countFilter);
+            var countSpec = TodoSpecsFactory.GetWithFiltersSpec(countFilter, specUserId);
             var totalCount = await _todoRepo.CountAsync(countSpec);
 
 
@@ -198,7 +198,9 @@ namespace Application.Services
                 Status = x.Status,
                 Priority = x.Priority,
                 RecurrenceType = x.RecurrenceType,
-                CreatedAt = x.CreatedAt
+                CreatedAt = x.CreatedAt,
+                UpdatedAt = x.UpdatedAt,
+                HasAttachments = x.Attachments.Any()
             }).ToList();
 
             return new PagedResultDto<TodoListDto>
@@ -215,8 +217,11 @@ namespace Application.Services
             var userId = _currentUserService.UserId;
             var isAdmin = _currentUserService.IsAdmin;
 
-            var todoObj = await _todoRepo.GetQuery()
-                .FirstOrDefaultAsync(x => x.Id == id && (isAdmin || x.UserId == userId));
+            var spec= new SpecificationBuilder<Todo>()
+                .Where(x => x.Id == id)
+                .Where(x => isAdmin || x.UserId == userId)
+                .Build();
+            var todoObj = await _todoRepo.GetEntityWithSpec(spec);
 
             if (todoObj == null)
                 throw new KeyNotFoundException("Todo not found.");

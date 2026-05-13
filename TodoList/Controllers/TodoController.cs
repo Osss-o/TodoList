@@ -99,7 +99,7 @@ namespace TodoList.Controllers
             }
             return Ok(todo);
         }
-        [HttpGet("GetQuery")]
+        [HttpGet("GetAll")]
         public async Task<IActionResult>GetAll([FromQuery] TodoFilterDto filter)
         {
             var todos = await _todoService.GetAllAsync(filter);

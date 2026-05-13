@@ -1,18 +1,14 @@
 ﻿using Application.Dtos.Auth;
 using Application.Repositories.Interface;
 using Application.Services.Interface;
-using Domain.Constants;
+using Application.Specifications;
 using Domain.Entities;
 using Domain.Entities.Enums;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
-using System.Text;
 
 namespace Application.Services
 {
@@ -22,23 +18,27 @@ namespace Application.Services
         private readonly IGenericRepository<RefreshToken> _refreshTokenRepo;
         private readonly IConfiguration _configuration;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IGenerateAccessToken _generateAccessToken;
 
         public AuthService(
             IGenericRepository<User> userRepo,
             IGenericRepository<RefreshToken> refreshTokenRepo,
             IConfiguration configuration,
-            IHttpContextAccessor httpContextAccessor)
+            IHttpContextAccessor httpContextAccessor,
+            IGenerateAccessToken generateAccessToken)
         {
             _userRepo = userRepo;
             _refreshTokenRepo = refreshTokenRepo;
             _configuration = configuration;
             _httpContextAccessor = httpContextAccessor;
+            _generateAccessToken = generateAccessToken;
         }
         public async Task<LoginResponseDto> LoginAsync(LoginRequestDto input)
         {
-            var user = await _userRepo.GetQuery()
-                .FirstOrDefaultAsync(u => u.Email.Trim().ToLower() == input.Username.Trim().ToLower()
-               );
+            var spec = new SpecificationBuilder<User>()
+                .Where(u=>u.Email.ToLower() == input.Username.Trim().ToLower())
+                .Build();
+            var user = await _userRepo.GetEntityWithSpec(spec);
             if (user == null)
             {
                 return null;
@@ -56,7 +56,7 @@ namespace Application.Services
             int refreshDays = jwtSection.GetValue<int>("RefreshTokenDays");
 
             var refreshToken = GenerateRefreshToken();
-            var accessToken = GenerateAccessToken(user, accessTokenMinutes);
+            var accessToken = _generateAccessToken.AccessTokenGenerator(user, accessTokenMinutes);
 
             await _refreshTokenRepo.Insert(new RefreshToken
             {
@@ -76,30 +76,7 @@ namespace Application.Services
                 Role = user.Role.ToString()
             };
         }
-        public string GenerateAccessToken(User user, int accessTokenMinutes)
-        {
-            var jwtSection = _configuration.GetSection("Jwt");
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSection["Key"]));
-
-            var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Name, user.UserName),
-                new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.Role, user.Role.ToString()),
-            };
-            var tokenDescriptor = new SecurityTokenDescriptor
-            {
-                Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.UtcNow.AddMinutes(accessTokenMinutes),
-                Issuer = jwtSection["Issuer"],
-                Audience = jwtSection["Audience"],
-                SigningCredentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256)
-            };
-            var handler = new JwtSecurityTokenHandler();
-            var token = handler.CreateToken(tokenDescriptor);
-            return handler.WriteToken(token);
-        }
+      
         public string GenerateRefreshToken()
         {
             var random = new byte[64];
@@ -113,11 +90,11 @@ namespace Application.Services
             {
                 refreshToken = refreshToken.Trim('"');
             }
-
-            var storedToken = await _refreshTokenRepo.GetQuery()
+            var spec = new SpecificationBuilder<RefreshToken>()
+                .Where(rt=>rt.Token ==refreshToken&&rt.ExpiryDate > DateTime.UtcNow )
                 .Include(rt => rt.User)
-                .FirstOrDefaultAsync(rt => rt.Token == refreshToken && rt.ExpiryDate > DateTime.UtcNow);
-
+                .Build();
+          var storedToken = await _refreshTokenRepo.GetEntityWithSpec(spec);
 
             if (storedToken == null)
             {
@@ -130,7 +107,7 @@ namespace Application.Services
             int accessTokenMinutes = jwtSection.GetValue<int>("AccessTokenMinutes");
             int refreshTokenDays = jwtSection.GetValue<int>("RefreshTokenDays");
 
-            var newAccessToken = GenerateAccessToken(user, accessTokenMinutes);
+            var newAccessToken = _generateAccessToken.AccessTokenGenerator(user, accessTokenMinutes);
             var newRefreshToken = GenerateRefreshToken();
 
             storedToken.Token = newRefreshToken;

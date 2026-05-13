@@ -83,7 +83,7 @@ namespace TodoList.Controllers
         }
 
         [Authorize]
-        [HttpGet("GetQuery")]
+        [HttpGet("GetAll")]
         public async Task<IActionResult> GetAll([FromQuery] CategoryFilterDto filter)
         {
 

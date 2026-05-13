@@ -66,24 +66,6 @@ namespace TodoList.Controllers
             }
         }
 
-        [HttpPost("Replace/{oldFileId}")]
-        public async Task<IActionResult> Replace (int oldFileId, [FromForm]IFormFile newFile)
-        {
-            try
-            {
-                await _fileService.ReplaceAsync(oldFileId, newFile);
-                return Ok(new { Message = "File replaced successfully." });
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new { Message = ex.Message });
-            }
-            catch
-            {
-                return StatusCode(500, new { Message = "An error occurred while replacing the file." });
-            }
-        }
-
         [HttpDelete("Delete/{id}")]
         public async Task<IActionResult> Delete(int id)
         {

@@ -14,13 +14,14 @@ namespace Infrastructure.Repositories
         {
             var query = inputQuery;
 
-            if (spec.Criteria != null)
+            if (spec.Criterias != null && spec.Criterias.Any())
             {
                 foreach (var criteria in spec.Criterias)
                 {
                     query = query.Where(criteria);
                 }
             }
+          
            if (spec.OrderBy != null)
             {
                 if(spec.IsDescending)
@@ -37,8 +38,11 @@ namespace Infrastructure.Repositories
                 query = query.Skip(spec.Skip).Take(spec.Take);
             }
 
-            query = spec.Includes.Aggregate(query, (current, include) => current.Include(include));
-      
+            if (spec.Includes != null && spec.Includes.Any())
+            {
+                query = spec.Includes.Aggregate(query, (current, include) => current.Include(include));
+            }
+
             return query;
         }
     }

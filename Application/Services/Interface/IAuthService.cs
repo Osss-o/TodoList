@@ -14,7 +14,6 @@ namespace Application.Services.Interface
         Task ChangePassword(ChangePasswordDto input);
         Task ResetPassword(int usetId,string newpassword);
         Task <LoginResponseDto> RefreshToken(string refreshToken);
-        string GenerateAccessToken(User user, int accessTokenMinutes);
         string GenerateRefreshToken();
     }
 }

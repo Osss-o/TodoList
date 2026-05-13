@@ -1,11 +1,11 @@
 ﻿using Application.Dtos.User;
 using Application.Repositories.Interface;
 using Application.Services.Interface;
+using Application.Specifications;
 using Domain.Constants;
 using Domain.Entities;
 using Domain.Entities.Enums;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using System.Text.RegularExpressions;
 
 namespace Application.Services
@@ -14,17 +14,17 @@ namespace Application.Services
     {
         private readonly IGenericRepository<User> _userRepo;
         private readonly IGenericRepository<Todo> _todoRepo;
-        private readonly IGenericRepository<Category> _gategoryRepo;
+        private readonly IGenericRepository<Category> _categoryRepo;
         private readonly ICurrentUserService _currentUserService;
 
         public UserService(IGenericRepository<User> userRepo,
             IGenericRepository<Todo> todoRepo,
-            IGenericRepository<Category> gategoryRepo,
+            IGenericRepository<Category> categoryRepo,
             ICurrentUserService currentUserService)
         {
             _userRepo = userRepo;
             _todoRepo = todoRepo;
-            _gategoryRepo = gategoryRepo;
+            _categoryRepo = categoryRepo;
             _currentUserService = currentUserService;
         }
 
@@ -38,8 +38,11 @@ namespace Application.Services
             if (!Regex.IsMatch(user.Email, emailPattern))
                 throw new Exception("Email is not valid.");
 
-            var exists = await _userRepo.GetQuery()
-                .AnyAsync(u => u.Email == user.Email);
+            var spec = new SpecificationBuilder<User>()
+                  .Where(u => u.Email == user.Email.Trim())
+                  .Build();
+
+            var exists = await _userRepo.CountAsync(spec) > 0;
 
             if (exists)
                 throw new Exception("Email is already in use.");
@@ -62,10 +65,14 @@ namespace Application.Services
             var currentUserId = _currentUserService.UserId;
 
 
-            var user = await _userRepo.GetQuery()
+            var spec = new SpecificationBuilder<User>()
+                .Where(u => u.Id == id)
                 .Include(u => u.Todos)
-                .Include(u => u.Categories)
-                .FirstOrDefaultAsync(u => u.Id == id);
+                    .Include(u => u.Categories)
+                .Build();
+
+            var user = await _userRepo.GetEntityWithSpec(spec);
+
             if (user == null)
                 throw new Exception("User not found.");
 
@@ -81,35 +88,37 @@ namespace Application.Services
 
         public async Task<List<UserListDto>> GetAllAsync(UserFilterDto fitler)
         {
-            var query = _userRepo.GetQuery().AsNoTracking();
+            var specBuilder = new SpecificationBuilder<User>();
 
             if (!string.IsNullOrEmpty(fitler.UserName))
-                query = query.Where(u => u.UserName.Contains(fitler.UserName.Trim()));
+                specBuilder.Where(u => u.UserName.Contains(fitler.UserName.Trim()));
 
             if (!string.IsNullOrEmpty(fitler.Email))
-                query = query.Where(u => u.Email.Contains(fitler.Email.Trim()));
+                specBuilder.Where(u => u.Email.Contains(fitler.Email.Trim()));
 
-            var users = await query
-                .OrderByDescending(u => u.CreatedAt)
-                .Skip((fitler.PageNumber - 1) * fitler.PageSize)
-                .Take(fitler.PageSize)
-                .Select(u => new UserListDto
-                {
-                    Id = u.Id,
-                    UserName = u.UserName,
-                    Email = u.Email,
-                    CreatedAt = u.CreatedAt,
-                    Role = u.Role.ToString()
-                }).ToListAsync();
+            specBuilder.OrderBy(u => u.CreatedAt, isDescending: true)
+                .ApplyPaging((fitler.PageNumber - 1) * fitler.PageSize, fitler.PageSize);
 
-            return users;
+            var spec = specBuilder.Build();
+            var users = await _userRepo.ListWithSpecAsync(spec);
+
+            return users.Select(u => new UserListDto
+            {
+                Id = u.Id,
+                UserName = u.UserName,
+                Email = u.Email,
+                CreatedAt = u.CreatedAt,
+                Role = u.Role.ToString()
+            }).ToList();
         }
+
 
         public async Task<UserListDto?> GetByIdAsync(int id)
         {
-            var user = await _userRepo.GetQuery()
-                .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == id);
+            var spec = new SpecificationBuilder<User>()
+                .Where(u => u.Id == id)
+                .Build();
+            var user = await _userRepo.GetEntityWithSpec(spec);
 
             if (user == null)
                 return null;
@@ -153,8 +162,10 @@ namespace Application.Services
 
                 var normalizedEmail = userDto.Email.Trim().ToLower();
 
-                var exists = await _userRepo.GetQuery()
-                    .AnyAsync(u => u.Email == normalizedEmail && u.Id != user.Id);
+                var spec = new SpecificationBuilder<User>()
+                    .Where(u => u.Email == normalizedEmail && u.Id != user.Id)
+                    .Build();
+                var exists = await _userRepo.CountAsync(spec) > 0;
 
                 if (exists)
                     throw new Exception("Email is already in use.");
@@ -177,14 +188,18 @@ namespace Application.Services
             if (user.Role == RoleEnum.Admin)
                 throw new Exception("User is already an admin.");
 
-            var hasTasks = await _todoRepo.GetQuery()
-               .AnyAsync(t => t.UserId == id);
+            var todoSpcec = new SpecificationBuilder<Todo>()
+                .Where(t => t.UserId == id)
+                .Build();
+            var hasTasks = await _todoRepo.CountAsync(todoSpcec) > 0;
 
             if (hasTasks)
                 throw new Exception("Connot promote user : This account has active tasks.Admin accounts must be clean.");
 
-            var hasCategories = await _gategoryRepo.GetQuery()
-                .AnyAsync(c => c.UserId == id);
+            var caregorySpec = new SpecificationBuilder<Category>()
+                .Where(c => c.UserId == id)
+                .Build();
+            var hasCategories = await _categoryRepo.CountAsync(caregorySpec) > 0;
 
             if (hasCategories)
                 throw new Exception("Cannat promote user:This accounr has existing category.");

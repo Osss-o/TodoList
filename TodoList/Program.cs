@@ -5,6 +5,7 @@ using Domain.Entities;
 using Infrastructure.Context;
 using Infrastructure.Data;
 using Infrastructure.Repositories;
+using Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -77,13 +78,13 @@ builder.Services.AddSwaggerGen(c =>
 
 
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
-builder.Services.AddScoped(typeof(IAuthService),typeof(AuthService));
-builder.Services.AddScoped(typeof(ICurrentUserService),typeof(CurrentUserService));
-builder.Services.AddScoped(typeof(ICategoryService), typeof(CategoryService));
-builder.Services.AddScoped(typeof(ITodoService), typeof(TodoService));
-builder.Services.AddScoped(typeof(IUserService), typeof(UserService));
-builder.Services.AddScoped(typeof(IFileAttachmentService), typeof(FileAttachmentService));
-
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddScoped<ICategoryService, CategoryService>();
+builder.Services.AddScoped<ITodoService, TodoService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IFileAttachmentService, FileAttachmentService>();
+builder.Services.AddScoped<IGenerateAccessToken, GenerateAccessToken>();
 
 // Add services to the container.
 

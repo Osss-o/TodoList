@@ -1,10 +1,10 @@
 ﻿using Application.Dtos.FileAttachment;
 using Application.Repositories.Interface;
 using Application.Services.Interface;
+using Application.Specifications;
 using Domain.Entities;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http;
 
 namespace Application.Services
 {
@@ -13,33 +13,31 @@ namespace Application.Services
         private readonly IGenericRepository<FileAttachment> _fileRepd;
         private readonly IGenericRepository<Todo> _todoRepo;
         private readonly IWebHostEnvironment _env;
-        private readonly DbContext _dbContext;
         private readonly ICurrentUserService _currentUserService;
 
         public FileAttachmentService(
             IGenericRepository<FileAttachment> fileRepd,
             IGenericRepository<Todo> todoRepo,
             IWebHostEnvironment env,
-            DbContext dbContext,
             ICurrentUserService currentUserService)
         {
             _fileRepd = fileRepd;
             _todoRepo = todoRepo;
             _env = env;
-            _dbContext = dbContext;
             _currentUserService = currentUserService;
         }
 
         public async Task<FileAttachmentListDto?> GetByIdAsync(int id)
         {
             var currentUserId = _currentUserService.UserId;
-            var isAdmin =_currentUserService.IsAdmin;
+            var isAdmin = _currentUserService.IsAdmin;
 
-            var query = _fileRepd.GetQuery().Include(f => f.Todo);
+            var spec = new SpecificationBuilder<FileAttachment>()
+               .Where(f => f.Id == id && (isAdmin || f.Todo.UserId == currentUserId))
+               .Include(f => f.Todo)
+               .Build();
 
-            var file = isAdmin
-                ? await query.FirstOrDefaultAsync(f => f.Id == id)
-                : await query.FirstOrDefaultAsync(f => f.Id == id && f.Todo.UserId == currentUserId);
+            var file = await _fileRepd.GetEntityWithSpec(spec);
 
             if (file == null) return null;
 
@@ -61,21 +59,24 @@ namespace Application.Services
         {
             var currentUserId = _currentUserService.UserId;
             var isAdmin = _currentUserService.IsAdmin;
-           IQueryable<FileAttachment> query = _fileRepd.GetQuery().Include(f => f.Todo);
+
+            var query = new SpecificationBuilder<FileAttachment>()
+                .Include(f => f.Todo);
 
             if (!isAdmin)
-                query = query.Where(f => f.Todo.UserId == currentUserId);
+                query.Where(f => f.Todo.UserId == currentUserId);
 
             if (filter.TodoId.HasValue)
-                query = query.Where(f => f.TodoId == filter.TodoId.Value);
+                query.Where(f => f.TodoId == filter.TodoId.Value);
 
             if (!string.IsNullOrEmpty(filter.FileName))
-                query = query.Where(f => f.FileName.Contains(filter.FileName));
+                query.Where(f => f.FileName.Contains(filter.FileName));
 
             if (!string.IsNullOrEmpty(filter.ContentType))
-                query = query.Where(f => f.ContentType.Contains(filter.ContentType));
+                query.Where(f => f.ContentType.Contains(filter.ContentType));
 
-            var files = await query.ToListAsync();
+            var spec = query.Build();
+            var files = await _fileRepd.ListWithSpecAsync(spec);
 
             return files.Select(f => new FileAttachmentListDto
             {
@@ -100,9 +101,10 @@ namespace Application.Services
         public async Task CreateManyAsync(List<IFormFile> files, int todoId)
         {
             var currentUserId = _currentUserService?.UserId;
-
-            var todo = await _todoRepo.GetQuery()
-                .FirstOrDefaultAsync(t => t.Id == todoId && t.UserId == currentUserId);
+            var spec = new SpecificationBuilder<Todo>()
+                .Where(t => t.Id == todoId && t.UserId == currentUserId)
+                .Build();
+            var todo = await _todoRepo.GetEntityWithSpec(spec);
 
             if (todo == null)
                 throw new KeyNotFoundException($"Todo with ID {todoId} not found or access denied.");
@@ -126,49 +128,18 @@ namespace Application.Services
         }
 
 
-        public async Task ReplaceAsync(int oldFileId, IFormFile newFile)
-        {
-            var  currentUserId = _currentUserService.UserId;
-
-            var oldFile = await _fileRepd.GetQuery()
-                .Include(f => f.Todo)
-                .FirstOrDefaultAsync(f => f.Id == oldFileId && f.Todo.UserId == currentUserId);
-
-            if (oldFile == null)
-                throw new KeyNotFoundException("Original file not found or access denied.");
-
-            using var transaction = await _dbContext.Database.BeginTransactionAsync();
-
-            try
-            {
-                var oldPath = Path.Combine(_env.WebRootPath, oldFile.FilePath.TrimStart('/'));
-                if (System.IO.File.Exists(oldPath))
-                    System.IO.File.Delete(oldPath);
-
-                _fileRepd.Delete(oldFile);
-                await _fileRepd.SaveChanges();
-
-                await SaveFile(newFile, oldFile.TodoId);
-
-                await transaction.CommitAsync();
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
-        }
+     
 
         public async Task DeleteAsync(int id)
         {
-            var currentUserId= _currentUserService.UserId;
-            var isAdmin= _currentUserService.IsAdmin;
+            var currentUserId = _currentUserService.UserId;
+            var isAdmin = _currentUserService.IsAdmin;
+            var spec = new SpecificationBuilder<FileAttachment>()
+                .Where(f => f.Id == id && (isAdmin || f.Todo.UserId == currentUserId))
+                .Include(f => f.Todo)
+                .Build();
 
-            var query = _fileRepd.GetQuery().Include(f => f.Todo);
-
-            var file = isAdmin
-                ? await query.FirstOrDefaultAsync(f => f.Id == id)
-                : await query.FirstOrDefaultAsync(f => f.Id == id && f.Todo.UserId == currentUserId);
+            var file = await _fileRepd.GetEntityWithSpec(spec);
 
             if (file == null)
                 throw new KeyNotFoundException("File not found or access denied.");
@@ -185,9 +156,10 @@ namespace Application.Services
         {
             var currentUserId = _currentUserService.UserId;
 
-
-            var todo = await _todoRepo.GetQuery()
-                .FirstOrDefaultAsync(t => t.Id == todoId && t.UserId == currentUserId);
+            var spec = new SpecificationBuilder<Todo>()
+                .Where(t => t.Id == todoId && t.UserId == currentUserId)
+                .Build();
+            var todo = await _todoRepo.GetEntityWithSpec(spec);
 
             if (todo == null)
                 throw new KeyNotFoundException($"Todo with ID {todoId} not found or access denied.");
@@ -207,10 +179,10 @@ namespace Application.Services
 
             if (file.Length > maxFileSize)
                 throw new InvalidOperationException("File size exceeds the maximum allowed limit of 2 MB.");
-          
+
             var rootPath = _env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
             var uploadsFolder = Path.Combine(rootPath, "uploads");
-          
+
             if (!Directory.Exists(uploadsFolder))
                 Directory.CreateDirectory(uploadsFolder);
 
@@ -230,7 +202,7 @@ namespace Application.Services
                 FileSize = file.Length,
                 CreatedAt = DateTime.UtcNow,
                 TodoId = todo.Id,
-               
+
             };
         }
     }

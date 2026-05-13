@@ -1,4 +1,5 @@
 ﻿using Application.Services.Interface;
+using Domain.Constants;
 using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
@@ -29,7 +30,7 @@ namespace Application.Services
             get
             {
                 var user = _httpContextAccessor.HttpContext?.User;
-                return user != null && (user.IsInRole("Admin") || user.IsInRole("SuperAdmin"));
+                return user != null && (user.IsInRole(RolesConst.ADMIN_ROLE) || user.IsInRole(RolesConst.SUPER_ADMIN_ROLE));
             }
         }
     }
