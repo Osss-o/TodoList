@@ -20,6 +20,7 @@ namespace Domain.Entities
         public DateTime? UpdatedAt { get; set; } 
         public TodoStatus Status { get; set; }
         public Priority Priority { get; set; }
+        public DateTime? CompletedAt { get; set; }
         public RecurrenceType? RecurrenceType { get; set; }
         public int UserId { get; set; }
         [ForeignKey("UserId")]
