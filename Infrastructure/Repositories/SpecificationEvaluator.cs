@@ -14,7 +14,7 @@ namespace Infrastructure.Repositories
         {
             var query = inputQuery;
 
-            if (spec.Criterias != null && spec.Criterias.Any())
+            if (spec.Criterias?.Count > 0)
             {
                 foreach (var criteria in spec.Criterias)
                 {

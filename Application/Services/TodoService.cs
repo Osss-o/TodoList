@@ -176,7 +176,7 @@ namespace Application.Services
                 Priority = filter.Priority,
                 RecurrenceType = filter.RecurrenceType,
                 Title = filter.Title,
-                UserName=filter.UserName,
+                UserName = filter.UserName,
                 FromeDate = filter.FromeDate,
                 ToDate = filter.ToDate,
                 PageNumber = 1,
@@ -217,22 +217,11 @@ namespace Application.Services
             var userId = _currentUserService.UserId;
             var isAdmin = _currentUserService.IsAdmin;
 
-            var spec= new SpecificationBuilder<Todo>()
+            var spec = new SpecificationBuilder<Todo>()
                 .Where(x => x.Id == id)
                 .Where(x => isAdmin || x.UserId == userId)
                 .Build();
             var todoObj = await _todoRepo.GetEntityWithSpec(spec);
-
-            if (todoObj == null)
-                throw new KeyNotFoundException("Todo not found.");
-
-            if (todo.Status.HasValue && todo.Status.Value != todoObj.Status)
-            {
-                if (todoObj.ExpiryDate.Date < DateTime.UtcNow.Date && todo.Status.Value == TodoStatus.Pending)
-                {
-                    throw new InvalidOperationException("Note: You cannot change the status of an expired task. Please edit the 'Expiration Date'.");
-                }
-            }
 
             if (!string.IsNullOrWhiteSpace(todo.Title))
                 todoObj.Title = todo.Title.Trim();
@@ -250,15 +239,40 @@ namespace Application.Services
 
                 todoObj.CategoryId = todo.CategoryId;
             }
+            else
+            {
+                todoObj.CategoryId = null;
+            }
+
             if (todo.DueDate.HasValue)
             {
                 if (todo.DueDate.Value.Date < DateTime.UtcNow.Date)
-
                     throw new InvalidOperationException("Its due date cannot be determined in the past.");
 
                 todoObj.ExpiryDate = todo.DueDate.Value.Date;
             }
-            if (todo.Status.HasValue) todoObj.Status = todo.Status.Value;
+
+            if (todo.Status.HasValue && todo.Status.Value != todoObj.Status)
+            {
+                if (todoObj.ExpiryDate.Date < DateTime.UtcNow.Date && todo.Status.Value == TodoStatus.Pending)
+                {
+                    throw new InvalidOperationException("Note: You cannot change the status of an expired task. Please edit the 'Expiration Date'.");
+                }
+            }
+            if (todo.Status.HasValue)
+            {
+                todoObj.Status = todo.Status.Value;
+                if (todoObj.Status == TodoStatus.Done && todoObj.CompletedAt == null)
+                {
+                    todoObj.CompletedAt = DateTime.UtcNow;
+
+                }
+                else if (todoObj.Status == TodoStatus.Pending)
+                {
+                    todoObj.CompletedAt = null;
+                }
+            }
+
             if (todo.Priority.HasValue) todoObj.Priority = todo.Priority.Value;
             if (todo.RecurrenceType.HasValue) todoObj.RecurrenceType = todo.RecurrenceType.Value;
 

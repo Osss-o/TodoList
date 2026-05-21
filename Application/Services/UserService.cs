@@ -42,7 +42,7 @@ namespace Application.Services
                   .Where(u => u.Email == user.Email.Trim())
                   .Build();
 
-            var exists = await _userRepo.CountAsync(spec) > 0;
+            var exists = await _userRepo.AnyAsync(spec);
 
             if (exists)
                 throw new Exception("Email is already in use.");
@@ -165,7 +165,7 @@ namespace Application.Services
                 var spec = new SpecificationBuilder<User>()
                     .Where(u => u.Email == normalizedEmail && u.Id != user.Id)
                     .Build();
-                var exists = await _userRepo.CountAsync(spec) > 0;
+                var exists = await _userRepo.AnyAsync(spec);
 
                 if (exists)
                     throw new Exception("Email is already in use.");
@@ -191,7 +191,7 @@ namespace Application.Services
             var todoSpcec = new SpecificationBuilder<Todo>()
                 .Where(t => t.UserId == id)
                 .Build();
-            var hasTasks = await _todoRepo.CountAsync(todoSpcec) > 0;
+            var hasTasks = await _todoRepo.AnyAsync(todoSpcec);
 
             if (hasTasks)
                 throw new Exception("Connot promote user : This account has active tasks.Admin accounts must be clean.");
@@ -199,7 +199,7 @@ namespace Application.Services
             var caregorySpec = new SpecificationBuilder<Category>()
                 .Where(c => c.UserId == id)
                 .Build();
-            var hasCategories = await _categoryRepo.CountAsync(caregorySpec) > 0;
+            var hasCategories = await _categoryRepo.AnyAsync(caregorySpec);
 
             if (hasCategories)
                 throw new Exception("Cannat promote user:This accounr has existing category.");

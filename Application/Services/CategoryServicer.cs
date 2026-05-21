@@ -26,10 +26,10 @@ namespace Application.Services
             var normalizedName = categoryDto.Name.Trim().ToLower();
 
             var spec= new SpecificationBuilder<Category>()
-                .Where(c => c.Name.ToLower() == normalizedName && c.UserId == userId)
+                .Where(c => c.Name == normalizedName && c.UserId == userId)
                 .Build();
 
-            var exists = await _categoryRepo.CountAsync(spec) > 0;
+            var exists = await _categoryRepo.AnyAsync(spec);
 
             if (exists)
             {
@@ -105,7 +105,7 @@ namespace Application.Services
             if (!string.IsNullOrWhiteSpace(filter.Name))
             {
                 var normalizedName = filter.Name.Trim().ToLower();
-                builder.Where(c => c.Name.ToLower().Contains(normalizedName));
+                builder.Where(c => c.Name.Contains(normalizedName));
             }
             var spec = builder.Build();
             var categories = await _categoryRepo.ListWithSpecAsync(spec);
@@ -159,10 +159,10 @@ namespace Application.Services
                 var exists = new SpecificationBuilder<Category>()
                     .Where(c => c.Id != id &&
                         c.UserId == userId &&
-                        c.Name.ToLower() == normalizedName)
+                        c.Name == normalizedName)
                     .Build();
 
-                var existsCategory = await _categoryRepo.CountAsync(exists)>0;
+                var existsCategory = await _categoryRepo.AnyAsync(exists);
 
                 if (existsCategory )
                 {

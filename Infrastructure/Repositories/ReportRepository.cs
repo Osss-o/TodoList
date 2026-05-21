@@ -25,7 +25,7 @@ namespace Infrastructure.Repositories
             }
             var report = await query.Select(u => new
             {
-                UserName = u.UserName,
+                u.UserName,
                 Todos = u.Todos.Where(t =>
                 (!filter.Priority.HasValue || t.Priority == filter.Priority.Value) &&
                 (!filter.FromDate.HasValue || t.CreatedAt >= filter.FromDate.Value) &&
@@ -43,8 +43,8 @@ namespace Infrastructure.Repositories
                     ExpiredTodos = u.Todos.Count(t => t.ExpiryDate < DateTime.UtcNow &&
                     t.Status != TodoStatus.Done),
 
-                    CompletionRate = u.Todos.Count() == 0 ? 0 
-                    : Math.Round((double)u.Todos.Count(t => t.Status == TodoStatus.Done)* 100/ u.Todos.Count(), 2),
+                    CompletionRate = u.Todos.Count() == 0 ? 0
+                    : Math.Round((double)u.Todos.Count(t => t.Status == TodoStatus.Done) * 100 / u.Todos.Count(), 2),
 
                     AverageCompletionTime = u.Todos
                     .Where(t => t.Status == TodoStatus.Done && t.CompletedAt.HasValue)

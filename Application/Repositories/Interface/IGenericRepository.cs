@@ -21,6 +21,7 @@ namespace Application.Repositories.Interface
         Task<T?> GetEntityWithSpec(ISpecification<T> spec);
         Task<IReadOnlyList<T>> ListWithSpecAsync(ISpecification<T> spec);
         Task<int> CountAsync(ISpecification<T> spec);
+        Task<bool> AnyAsync(ISpecification<T> spec);
        
     }
 }

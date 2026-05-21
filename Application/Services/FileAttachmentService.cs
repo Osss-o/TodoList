@@ -10,18 +10,18 @@ namespace Application.Services
 {
     public class FileAttachmentService : IFileAttachmentService
     {
-        private readonly IGenericRepository<FileAttachment> _fileRepd;
+        private readonly IGenericRepository<FileAttachment> _fileRepo;
         private readonly IGenericRepository<Todo> _todoRepo;
         private readonly IWebHostEnvironment _env;
         private readonly ICurrentUserService _currentUserService;
 
         public FileAttachmentService(
-            IGenericRepository<FileAttachment> fileRepd,
+            IGenericRepository<FileAttachment> fileRepo,
             IGenericRepository<Todo> todoRepo,
             IWebHostEnvironment env,
             ICurrentUserService currentUserService)
         {
-            _fileRepd = fileRepd;
+            _fileRepo = fileRepo;
             _todoRepo = todoRepo;
             _env = env;
             _currentUserService = currentUserService;
@@ -37,7 +37,7 @@ namespace Application.Services
                .Include(f => f.Todo)
                .Build();
 
-            var file = await _fileRepd.GetEntityWithSpec(spec);
+            var file = await _fileRepo.GetEntityWithSpec(spec);
 
             if (file == null) return null;
 
@@ -45,7 +45,7 @@ namespace Application.Services
             {
                 Id = file.Id,
                 TodoId = file.TodoId,
-                TodoTitle = file.Todo.Title,
+                TodoTitle = file.Todo?.Title,
                 FileName = file.FileName,
                 FilePath = file.FilePath,
                 ContentType = file.ContentType,
@@ -76,13 +76,13 @@ namespace Application.Services
                 query.Where(f => f.ContentType.Contains(filter.ContentType));
 
             var spec = query.Build();
-            var files = await _fileRepd.ListWithSpecAsync(spec);
+            var files = await _fileRepo.ListWithSpecAsync(spec);
 
             return files.Select(f => new FileAttachmentListDto
             {
                 Id = f.Id,
                 TodoId = f.TodoId,
-                TodoTitle = f.Todo.Title,
+                TodoTitle = f.Todo?.Title,
                 FileName = f.FileName,
                 FilePath = f.FilePath,
                 ContentType = f.ContentType,
@@ -122,8 +122,8 @@ namespace Application.Services
 
             if (attachments.Any())
             {
-                await _fileRepd.InsertRange(attachments);
-                await _fileRepd.SaveChanges();
+                await _fileRepo.InsertRange(attachments);
+                await _fileRepo.SaveChanges();
             }
         }
 
@@ -139,7 +139,7 @@ namespace Application.Services
                 .Include(f => f.Todo)
                 .Build();
 
-            var file = await _fileRepd.GetEntityWithSpec(spec);
+            var file = await _fileRepo.GetEntityWithSpec(spec);
 
             if (file == null)
                 throw new KeyNotFoundException("File not found or access denied.");
@@ -148,8 +148,8 @@ namespace Application.Services
             if (System.IO.File.Exists(filePath))
                 System.IO.File.Delete(filePath);
 
-            _fileRepd.Delete(file);
-            await _fileRepd.SaveChanges();
+            _fileRepo.Delete(file);
+            await _fileRepo.SaveChanges();
         }
 
         private async Task SaveFile(IFormFile file, int todoId)
@@ -166,8 +166,8 @@ namespace Application.Services
 
             var attachment = await SaveFileInternal(file, todo);
 
-            await _fileRepd.Insert(attachment);
-            await _fileRepd.SaveChanges();
+            await _fileRepo.Insert(attachment);
+            await _fileRepo.SaveChanges();
         }
 
         private async Task<FileAttachment> SaveFileInternal(IFormFile file, Todo todo)

@@ -69,5 +69,10 @@ namespace Infrastructure.Repositories
         {
             return SpecificationEvaluator<T>.GetQuery(_todolistDbcontext.Set<T>().AsQueryable(), spec);
         }
+
+        public async Task<bool> AnyAsync(ISpecification<T> spec)
+        {
+            return await ApplySpecification(spec).AnyAsync();
+        }
     }
 }
