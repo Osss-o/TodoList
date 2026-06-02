@@ -45,5 +45,19 @@ namespace Infrastructure.Repositories
 
             return query;
         }
+        public static IQueryable<TResult> GetQuery <TResult>(IQueryable<TEntity>inputQuery, ISpecification<TEntity, TResult> spec)
+        {
+            var query = GetQuery(inputQuery, (ISpecification<TEntity>)spec);
+
+            if (spec.GroupBy!= null)
+            {
+                query = query.GroupBy(spec.GroupBy).SelectMany(x => x);
+            }
+            if(spec.Selector != null)
+            {
+                return query.Select(spec.Selector);
+            }
+            throw new InvalidOperationException("Selector must be provided for projection.");
+        }
     }
 }

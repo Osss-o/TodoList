@@ -74,5 +74,10 @@ namespace Infrastructure.Repositories
         {
             return await ApplySpecification(spec).AnyAsync();
         }
+        public async Task<List<TResult>> ListWithSpecAsync<TResult>(ISpecification<T, TResult> spec)
+        {
+            var query = SpecificationEvaluator<T>.GetQuery(GetQuery(), spec);
+            return await query.ToListAsync();
+        }
     }
 }

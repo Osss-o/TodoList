@@ -15,16 +15,16 @@ namespace TodoList.Controllers
     {
         private readonly IFileAttachmentService _fileService;
         private readonly IWebHostEnvironment _env;
-        private readonly ICurrentUserService _currentUserService;
-        public FileAttachmentController(IFileAttachmentService fileService, IWebHostEnvironment env, ICurrentUserService currentUserService)
+
+        public FileAttachmentController(IFileAttachmentService fileService, IWebHostEnvironment env)
         {
             _fileService = fileService;
             _env = env;
-            _currentUserService = currentUserService;
+
         }
-       
+
         [HttpPost("Create")]
-        public async Task<IActionResult> Create([FromForm]FileAttachmentCreateDto fileAttachment)
+        public async Task<IActionResult> Create([FromForm] FileAttachmentCreateDto fileAttachment)
         {
             try
             {
@@ -89,7 +89,7 @@ namespace TodoList.Controllers
             }
 
         }
-       
+
         [HttpGet("GetById/{id}")]
         public async Task<IActionResult> GetById(int id)
         {
@@ -130,14 +130,17 @@ namespace TodoList.Controllers
             if (fileAttachmentD == null)
                 return NotFound(new { Message = $"File attachment with ID {id} not found" });
 
-            var filePath = Path.Combine(_env.WebRootPath, fileAttachmentD.FilePath.Replace("/", "\\"));
+            var rootPath = _env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+          
+            var filePath = Path.Combine(rootPath, fileAttachmentD.FilePath.TrimStart('/', '\\'));
 
             if (!System.IO.File.Exists(filePath))
                 return NotFound(new { Message = "File not found on srever. " });
 
             var contentType = fileAttachmentD.ContentType ?? "application/octet-stream";
-          
-            return File(await System.IO.File.ReadAllBytesAsync(filePath), contentType, fileAttachmentD.FileName);
+
+            var strem = new FileStream(filePath, FileMode.Open, FileAccess.Read,FileShare.Read);
+            return File(strem,contentType,fileAttachmentD.FileName);
         }
     }
 }

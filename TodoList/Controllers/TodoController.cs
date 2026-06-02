@@ -32,6 +32,10 @@ namespace TodoList.Controllers
 
                 return Ok(new { message = "Todo created successfully" });
             }
+            catch(UnauthorizedAccessException ex)
+            {
+                return StatusCode(403, new { message = ex.Message });
+            }
             catch (InvalidOperationException ex)
             {
                 return BadRequest(new { message = ex.Message });
@@ -47,7 +51,7 @@ namespace TodoList.Controllers
         }
 
         [HttpPut("Update/{id}")]
-        public async Task<IActionResult> Update(int id, [FromForm] TodoUpdateDto todoUpdateDto)
+        public async Task<IActionResult> Update(int id, [FromBody] TodoUpdateDto todoUpdateDto)
         {
 
             try

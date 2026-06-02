@@ -1,10 +1,5 @@
 ﻿using Application.Repositories.Interface;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Application.SpecificationsServices
 {
@@ -20,5 +15,14 @@ namespace Application.SpecificationsServices
         public int Take { get; internal set; }
         public int Skip { get; internal set; }
         public bool IsPagingEnabled { get; internal set; }
+    }
+
+
+    public class Specification<T, TResult> : Specification<T>, ISpecification<T, TResult>
+    {
+        public Expression<Func<T, TResult>>? Selector { get; internal set; }
+        public Expression<Func<T, object>>? GroupBy { get; internal set; }
+
+
     }
 }

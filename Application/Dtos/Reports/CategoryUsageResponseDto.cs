@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace Application.Dtos.Reports
@@ -20,6 +21,13 @@ namespace Application.Dtos.Reports
         public Priority? MostCommonPriority { get; set; }
         public int RecurringTodosCount { get; set; }
         public bool SafeToDelete { get; set; }
+
+        [JsonIgnore]
+        public int HighCountHelper { get; set; }
+        [JsonIgnore]
+        public int MediumCountHelper { get; set; }
+        [JsonIgnore]
+        public int LowCountHelper { get; set; }
     }
        
 }

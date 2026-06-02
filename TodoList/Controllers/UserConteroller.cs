@@ -15,12 +15,12 @@ namespace TodoList.Controllers
     public class UserController : ControllerBase
     {
         private readonly IUserService _userService;
-        private readonly ICurrentUserService _currentUserService;
+     
 
-        public UserController(IUserService userService, ICurrentUserService currentUserService)
+        public UserController(IUserService userService)
         {
             _userService = userService;
-            _currentUserService = currentUserService;
+            
         }
 
 
@@ -39,7 +39,7 @@ namespace TodoList.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "An error occurred during creation.", detalils = ex.Message });
+                return StatusCode(500, new { message = "An error occurred during creation.", details = ex.Message });
             }
         }
 
@@ -47,13 +47,14 @@ namespace TodoList.Controllers
         public async Task<IActionResult> Update(int id, [FromBody] UserUpdateDto userUpdateDto)
         {
 
-            if (!_currentUserService.IsAdmin && _currentUserService.UserId != id)
-                return Forbid("You cannot update another user's data.");
-
             try
             {
-                await _userService.UpdateAsync(userUpdateDto);
+                await _userService.UpdateAsync(id, userUpdateDto);
                 return Ok(new { message = " The user was successfully updated." });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(403, new { message = ex.Message });
             }
             catch (KeyNotFoundException ex)
             {
@@ -70,7 +71,7 @@ namespace TodoList.Controllers
         }
 
         [Authorize(Roles = $"{RolesConst.SUPER_ADMIN_ROLE},{RolesConst.ADMIN_ROLE}")]
-        [HttpDelete("delete/{id}")]
+        [HttpDelete("Delete/{id}")]
         public async Task<IActionResult> Delete(int id)
         {
             try
@@ -119,19 +120,21 @@ namespace TodoList.Controllers
         {
             try
             {
-                var roleClaim = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
 
-                if (!Enum.TryParse(roleClaim, out RoleEnum role))
-                {
-                    return Unauthorized(new { message = "Invalid role claim." });
-                }
-
-                await _userService.DemoteFromAdminAsync(id, role);
+                await _userService.DemoteFromAdminAsync(id);
                 return Ok(new { message = "User has been successfully demoted from Admin." });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
             }
             catch (UnauthorizedAccessException ex)
             {
                 return StatusCode(403, new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
             }
             catch (Exception ex)
             {

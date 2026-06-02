@@ -37,4 +37,40 @@ namespace Application.Specifications
         }
 
     }
+    public class SpecificationBuilder<T, TResult>
+
+    {
+        private readonly Specification<T, TResult> _specification = new Specification<T, TResult>();
+       
+        public SpecificationBuilder<T,TResult>Where(Expression<Func<T, bool>> criteria)
+        {
+            _specification.Criterias.Add(criteria);
+            return this;
+        }
+        public SpecificationBuilder<T,TResult> Include(Expression<Func<T, object>> includeExpression)
+        {
+            _specification.Includes.Add(includeExpression);
+            return this;
+        }
+        public SpecificationBuilder<T, TResult> OrderBy(Expression<Func<T, object>> orderByExpression, bool isDescending = false)
+        {
+            _specification.OrderBy = orderByExpression;
+            _specification.IsDescending = isDescending;
+            return this;
+        }
+        public SpecificationBuilder<T,TResult> ApplyGroupBy(Expression<Func<T, object>> groupByExpression)
+        {
+            _specification.GroupBy = groupByExpression;
+            return this;
+        }
+        public SpecificationBuilder<T,TResult> Select(Expression<Func<T, TResult>> selector)
+        {
+            _specification.Selector = selector;
+            return this;
+        }
+        public ISpecification<T,TResult>Build()
+        {
+            return _specification;
+        }
+    }
 }

@@ -67,8 +67,6 @@ namespace Application.Services
 
             var spec = new SpecificationBuilder<User>()
                 .Where(u => u.Id == id)
-                .Include(u => u.Todos)
-                    .Include(u => u.Categories)
                 .Build();
 
             var user = await _userRepo.GetEntityWithSpec(spec);
@@ -82,7 +80,7 @@ namespace Application.Services
             if (!isAdmin && id != currentUserId)
                 throw new UnauthorizedAccessException("You don't have permission to delete this user.");
 
-            _userRepo.Delete(user);
+            await _userRepo.Delete(user);
             await _userRepo.SaveChanges();
         }
 
@@ -127,32 +125,31 @@ namespace Application.Services
                 Id = user.Id,
                 UserName = user.UserName,
                 Email = user.Email,
-                CreatedAt = user.CreatedAt
+                CreatedAt = user.CreatedAt,
+                Role = user.Role.ToString()
             };
         }
 
-        public async Task UpdateAsync(UserUpdateDto userDto)
+        public async Task UpdateAsync(int id,UserUpdateDto userDto)
         {
-            var isAdmin = _currentUserService.IsAdmin;
-            var currentUserId = _currentUserService.UserId;
-
-
-            if (!isAdmin && currentUserId != currentUserId)
-                throw new UnauthorizedAccessException("You are not allowed to update this user.");
-
-            var user = await _userRepo.GetById(currentUserId);
+           
+            if (!_currentUserService.IsAdmin && _currentUserService.UserId != id)
+            {
+                throw new UnauthorizedAccessException("You cannot update another user's profile.");
+            }
+            var user = await _userRepo.GetById(id);
 
             if (user == null)
                 throw new Exception("User not found.");
 
             if (user.Email == SuperAdmin.Email && !string.IsNullOrEmpty(userDto.Email))
             {
-                if (userDto.Email.Trim().ToLower() != SuperAdmin.Email.ToLower())
+                if (userDto.Email.Trim().ToLower() != SuperAdmin.Email.Trim().ToLower())
                     throw new Exception("Default admin cannot be updated.");
             }
             if (!string.IsNullOrEmpty(userDto.UserName))
 
-                user.UserName = userDto.UserName;
+                user.UserName = userDto.UserName.Trim();
 
             if (!string.IsNullOrEmpty(userDto.Email))
             {
@@ -160,7 +157,7 @@ namespace Application.Services
                 if (!Regex.IsMatch(userDto.Email, emailPattern))
                     throw new Exception("Email is not valid.");
 
-                var normalizedEmail = userDto.Email.Trim().ToLower();
+                var normalizedEmail = userDto.Email.Trim();
 
                 var spec = new SpecificationBuilder<User>()
                     .Where(u => u.Email == normalizedEmail && u.Id != user.Id)
@@ -211,11 +208,9 @@ namespace Application.Services
             await _userRepo.SaveChanges();
         }
 
-        public async Task DemoteFromAdminAsync(int id, RoleEnum role)
+        public async Task DemoteFromAdminAsync(int id)
         {
-            if (role != RoleEnum.SuperAdmin)
-                throw new UnauthorizedAccessException("Only super admins can demote admins.");
-
+           
             var user = await _userRepo.GetById(id);
 
             if (user == null)

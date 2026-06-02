@@ -20,12 +20,12 @@ namespace Application.Services
             _currentUserService = currentUserService;
         }
 
-        public async Task CreateAsync(CategoryCreateDto categoryDto )
+        public async Task CreateAsync(CategoryCreateDto categoryDto)
         {
             var userId = _currentUserService.UserId;
-            var normalizedName = categoryDto.Name.Trim().ToLower();
+            var normalizedName = categoryDto.Name.Trim();
 
-            var spec= new SpecificationBuilder<Category>()
+            var spec = new SpecificationBuilder<Category>()
                 .Where(c => c.Name == normalizedName && c.UserId == userId)
                 .Build();
 
@@ -68,24 +68,20 @@ namespace Application.Services
 
             if (deleteLinkedTodos)
             {
-                foreach (var todo in todos)
-                {
-                   _todoRepo.Delete(todo);
-                }
-
+                await _todoRepo.DeleteRange(todos.ToList());
                 await _todoRepo.SaveChanges();
             }
             else
             {
                 foreach (var todo in todos)
                 {
-                    todo.CategoryId = null; 
+                    todo.CategoryId = null;
                     _todoRepo.Update(todo);
                 }
                 await _todoRepo.SaveChanges();
             }
 
-            _categoryRepo.Delete(category);
+            await _categoryRepo.Delete(category);
             await _categoryRepo.SaveChanges();
         }
 
@@ -99,7 +95,7 @@ namespace Application.Services
 
             if (!isAdmin)
             {
-               builder.Where(c => c.UserId == userId);
+                builder.Where(c => c.UserId == userId);
             }
 
             if (!string.IsNullOrWhiteSpace(filter.Name))
@@ -114,17 +110,18 @@ namespace Application.Services
             {
                 Id = c.Id,
                 Name = c.Name,
-                TodoCount= _todoRepo.GetQuery()
-                .Count(t=>t.CategoryId == c.Id &&(isAdmin || t.UserId == userId))
+                TodoCount = c.Todos.Count(t => isAdmin || t.UserId == userId)
             }).ToList();
         }
 
         public async Task<CategoryListDto?> GetByIdAsync(int id)
         {
             var userId = _currentUserService.UserId;
+            var isAdmin = _currentUserService.IsAdmin;
 
             var builder = new SpecificationBuilder<Category>()
-                .Where(c => c.Id == id && c.UserId == userId)
+                .Where(c => c.Id == id && (isAdmin || c.UserId == userId))
+                .Include(c => c.Todos)
                 .Build();
             var category = await _categoryRepo.GetEntityWithSpec(builder);
 
@@ -134,14 +131,15 @@ namespace Application.Services
             return new CategoryListDto
             {
                 Id = category.Id,
-                Name = category.Name
+                Name = category.Name,
+                TodoCount = category.Todos.Count(t => isAdmin || t.UserId == userId)
             };
         }
 
         public async Task UpdateAsync(int id, CategoryUpdateDto categoryDto)
         {
             var userId = _currentUserService.UserId;
-            
+
             var spec = new SpecificationBuilder<Category>()
                 .Where(c => c.Id == id && c.UserId == userId)
                 .Build();
@@ -154,7 +152,7 @@ namespace Application.Services
             }
             if (!string.IsNullOrWhiteSpace(categoryDto.Name))
             {
-                var normalizedName = categoryDto.Name.Trim().ToLower();
+                var normalizedName = categoryDto.Name.Trim();
 
                 var exists = new SpecificationBuilder<Category>()
                     .Where(c => c.Id != id &&
@@ -164,11 +162,11 @@ namespace Application.Services
 
                 var existsCategory = await _categoryRepo.AnyAsync(exists);
 
-                if (existsCategory )
+                if (existsCategory)
                 {
                     throw new InvalidOperationException($"A category with the name '{normalizedName}' already exists.");
                 }
-                categoryinput.Name = categoryDto.Name.Trim();
+                categoryinput.Name = normalizedName;
             }
 
             _categoryRepo.Update(categoryinput);

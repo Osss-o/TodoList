@@ -13,4 +13,9 @@ namespace Application.Repositories.Interface
         int Skip { get; }
         bool IsPagingEnabled { get; }
     }
+    public interface ISpecification<T, TResult> : ISpecification<T>
+    {
+        Expression<Func<T, TResult>>? Selector { get; }
+        Expression<Func<T, object>>? GroupBy { get; }
+    }
 }

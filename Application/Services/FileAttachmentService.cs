@@ -94,19 +94,33 @@ namespace Application.Services
         public async Task CreateAsync(FileAttachmentCreateDto dto)
         {
             var currentUserId = _currentUserService.UserId;
+            var isAdmin = _currentUserService.IsAdmin;
 
-            await SaveFile(dto.File, dto.TodoId);
+            var spec = new SpecificationBuilder<Todo>()
+                    .Where(t => t.Id == dto.TodoId && (isAdmin || t.UserId == currentUserId))
+                    .Build();
+            var todoExists = await _todoRepo.AnyAsync(spec);
+
+            if (!todoExists)
+                throw new KeyNotFoundException($"Todo with ID {dto.TodoId} not found or access denied.");
+
+            var attachment = await SaveFileInternalAsync(dto.File, dto.TodoId);
+
+            await _fileRepo.Insert(attachment);
+            await _fileRepo.SaveChanges();
         }
 
         public async Task CreateManyAsync(List<IFormFile> files, int todoId)
         {
             var currentUserId = _currentUserService?.UserId;
-            var spec = new SpecificationBuilder<Todo>()
-                .Where(t => t.Id == todoId && t.UserId == currentUserId)
-                .Build();
-            var todo = await _todoRepo.GetEntityWithSpec(spec);
+            var isAdmin = _currentUserService?.IsAdmin ?? false;
 
-            if (todo == null)
+            var spec = new SpecificationBuilder<Todo>()
+                .Where(t => t.Id == todoId && (isAdmin || t.UserId == currentUserId))
+                .Build();
+            var todo = await _todoRepo.AnyAsync(spec);
+
+            if (!todo)
                 throw new KeyNotFoundException($"Todo with ID {todoId} not found or access denied.");
 
             var attachments = new List<FileAttachment>();
@@ -115,7 +129,7 @@ namespace Application.Services
             {
                 if (file != null && file.Length > 0)
                 {
-                    var attachment = await SaveFileInternal(file, todo);
+                    var attachment = await SaveFileInternalAsync(file, todoId);
                     attachments.Add(attachment);
                 }
             }
@@ -126,14 +140,11 @@ namespace Application.Services
                 await _fileRepo.SaveChanges();
             }
         }
-
-
-     
-
         public async Task DeleteAsync(int id)
         {
             var currentUserId = _currentUserService.UserId;
             var isAdmin = _currentUserService.IsAdmin;
+
             var spec = new SpecificationBuilder<FileAttachment>()
                 .Where(f => f.Id == id && (isAdmin || f.Todo.UserId == currentUserId))
                 .Include(f => f.Todo)
@@ -144,33 +155,18 @@ namespace Application.Services
             if (file == null)
                 throw new KeyNotFoundException("File not found or access denied.");
 
-            var filePath = Path.Combine(_env.WebRootPath, file.FilePath.TrimStart('/'));
+            var rootPath = _env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+            var filePath = Path.Combine(rootPath, file.FilePath.TrimStart('/', '\\'));
+
             if (System.IO.File.Exists(filePath))
                 System.IO.File.Delete(filePath);
 
-            _fileRepo.Delete(file);
+            await _fileRepo.Delete(file);
             await _fileRepo.SaveChanges();
         }
 
-        private async Task SaveFile(IFormFile file, int todoId)
-        {
-            var currentUserId = _currentUserService.UserId;
 
-            var spec = new SpecificationBuilder<Todo>()
-                .Where(t => t.Id == todoId && t.UserId == currentUserId)
-                .Build();
-            var todo = await _todoRepo.GetEntityWithSpec(spec);
-
-            if (todo == null)
-                throw new KeyNotFoundException($"Todo with ID {todoId} not found or access denied.");
-
-            var attachment = await SaveFileInternal(file, todo);
-
-            await _fileRepo.Insert(attachment);
-            await _fileRepo.SaveChanges();
-        }
-
-        private async Task<FileAttachment> SaveFileInternal(IFormFile file, Todo todo)
+        private async Task<FileAttachment> SaveFileInternalAsync(IFormFile file, int todoId)
         {
             const long maxFileSize = 2 * 1024 * 1024; // 2 MB
 
@@ -201,8 +197,7 @@ namespace Application.Services
                 ContentType = file.ContentType,
                 FileSize = file.Length,
                 CreatedAt = DateTime.UtcNow,
-                TodoId = todo.Id,
-
+                TodoId = todoId,
             };
         }
     }

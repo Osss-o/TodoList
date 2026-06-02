@@ -13,9 +13,9 @@ namespace Application.Services.Interface
         Task <UserListDto?> GetByIdAsync(int id);
         Task<List<UserListDto>> GetAllAsync(UserFilterDto fitler);
         Task CreateAsync(UserCreateDto user);
-        Task UpdateAsync(UserUpdateDto user);
+        Task UpdateAsync(int id,UserUpdateDto user);
         Task DeleteAsync(int id);
         Task PromoteToAdminAsync(int id);
-        Task DemoteFromAdminAsync(int id,RoleEnum role);
+        Task DemoteFromAdminAsync(int id);
     }
 }

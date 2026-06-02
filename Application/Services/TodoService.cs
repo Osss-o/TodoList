@@ -42,9 +42,12 @@ namespace Application.Services
 
             if (todo.CategoryId.HasValue)
             {
-                var categoryExixts = await _categoryRepo.GetById(todo.CategoryId.Value);
+                var categorySpec = new SpecificationBuilder<Category>()
+                    .Where(c => c.Id == todo.CategoryId.Value&& c.UserId == userId)
+                    .Build();
+                var categoryExixts = await _categoryRepo.AnyAsync(categorySpec);
 
-                if (categoryExixts == null || categoryExixts.UserId != userId)
+                if (!categoryExixts)
                     throw new KeyNotFoundException("Category not found or access denied.");
             }
             var todoObj = new Todo
@@ -83,8 +86,8 @@ namespace Application.Services
             var isAdmin = _currentUserService.IsAdmin;
 
             var specUserId = isAdmin ? (int?)null : userId;
-
             var spec = TodoSpecsFactory.GetByIdSpec(id, specUserId);
+            
             var todo = await _todoRepo.GetEntityWithSpec(spec);
 
             if (todo == null)
@@ -223,6 +226,11 @@ namespace Application.Services
                 .Build();
             var todoObj = await _todoRepo.GetEntityWithSpec(spec);
 
+            if (todoObj == null)
+            {
+                throw new KeyNotFoundException("Todo not found.");
+            }
+
             if (!string.IsNullOrWhiteSpace(todo.Title))
                 todoObj.Title = todo.Title.Trim();
 
@@ -231,19 +239,18 @@ namespace Application.Services
 
             if (todo.CategoryId.HasValue)
             {
-                var categoryExiets = await _categoryRepo.GetById(todo.CategoryId.Value);
+               var categorySpec = new SpecificationBuilder<Category>()
+                    .Where(c => c.Id == todo.CategoryId.Value &&(isAdmin || c.UserId == userId))
+                    .Build();
 
-                if (categoryExiets == null || (!isAdmin && categoryExiets.UserId != userId))
+                var categoryExixts = await _categoryRepo.AnyAsync(categorySpec);
 
-                    throw new KeyNotFoundException("Category not found.");
-
-                todoObj.CategoryId = todo.CategoryId;
+                if (!categoryExixts)
+                    throw new KeyNotFoundException("Category not found or access denied.");
+              
+                todoObj.CategoryId = todo.CategoryId.Value;
             }
-            else
-            {
-                todoObj.CategoryId = null;
-            }
-
+           
             if (todo.DueDate.HasValue)
             {
                 if (todo.DueDate.Value.Date < DateTime.UtcNow.Date)
@@ -258,14 +265,10 @@ namespace Application.Services
                 {
                     throw new InvalidOperationException("Note: You cannot change the status of an expired task. Please edit the 'Expiration Date'.");
                 }
-            }
-            if (todo.Status.HasValue)
-            {
                 todoObj.Status = todo.Status.Value;
-                if (todoObj.Status == TodoStatus.Done && todoObj.CompletedAt == null)
+                if(todoObj.Status==TodoStatus.Done)
                 {
                     todoObj.CompletedAt = DateTime.UtcNow;
-
                 }
                 else if (todoObj.Status == TodoStatus.Pending)
                 {
