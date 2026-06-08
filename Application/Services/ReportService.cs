@@ -9,24 +9,35 @@ namespace Application.Services
 {
     public class ReportService : IReportService
     {
-        private readonly IReportRepository _reportRepo;
-        public ReportService(IReportRepository reportRepo)
+       
+        private readonly IReportQueryService _reportQueryService;
 
+        public ReportService(IReportQueryService reportQueryService)
         {
-            _reportRepo = reportRepo;
+            _reportQueryService = reportQueryService;
         }
 
         public async Task<List<UserProductivityResponseDto>> GetUserProductivityReportAsync(UserProductivityFilterDto filter)
         {
             ValidateDates(filter.FromDate, filter.ToDate);
 
-            return await _reportRepo.GetUserProductivityResponsesAsync(filter);
+            var specBuilder = new SpecificationBuilder<User>();
+            if (filter.UserId.HasValue)
+            {
+                specBuilder.Where(u => u.Id == filter.UserId.Value);
+            }
+            var spec = specBuilder.Build();
+
+            return await _reportQueryService.GetUserProductivityAsync(spec, filter);
         }
         public async Task<List<CategoryUsageResponseDto>> GetCategoryUsageReportAsync(CategoryUsageFilterDto filter)
         {
             ValidateDates(filter.FromDate, filter.ToDate);
 
-            return await _reportRepo.GetCategoryUsagesAsync(filter);
+            var specBuilder = new SpecificationBuilder<Category>();
+            var spec = specBuilder.Build();
+
+            return await _reportQueryService.GetCategoryUsagesAsync(spec, filter);
         }
         private void ValidateDates(DateTime? fromDate, DateTime? toDate)
         {

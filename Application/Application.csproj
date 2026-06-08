@@ -21,4 +21,8 @@
 		<Folder Include="Extenstions\" />
 	</ItemGroup>
 
+	<ItemGroup>
+	  <None Include="Services\Interface\IReportQueryService.cs" />
+	</ItemGroup>
+
 </Project>
