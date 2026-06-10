@@ -10,7 +10,7 @@ namespace Application.Repositories.Interface
 {
     public interface IReportQueryService
     {
-        Task<List<UserProductivityResponseDto>> GetUserProductivityAsync(ISpecification<User>spec,UserProductivityFilterDto filter);
-        Task<List<CategoryUsageResponseDto>>GetCategoryUsagesAsync(ISpecification<Category>spec,CategoryUsageFilterDto filter);
+        Task<List<UserTodosData>> GetUserProductivityDataAsync(ISpecification<User>spec,UserProductivityFilterDto filter);
+        Task<List<CategoryTodosData>>GetCategoryUsagesDataAsync(ISpecification<Category>spec,CategoryUsageFilterDto filter);
     }
 }
