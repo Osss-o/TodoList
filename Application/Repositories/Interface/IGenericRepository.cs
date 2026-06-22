@@ -23,6 +23,6 @@ namespace Application.Repositories.Interface
         Task<int> CountAsync(ISpecification<T> spec);
         Task<bool> AnyAsync(ISpecification<T> spec);
         Task<List<TResult>>ListWithSpecAsync<TResult>(ISpecification<T, TResult> spec);
-       
+        IQueryable<T> GetQuery(ISpecification<T> spec);
     }
 }

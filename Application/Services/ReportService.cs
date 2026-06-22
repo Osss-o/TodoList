@@ -10,11 +10,16 @@ namespace Application.Services
     public class ReportService : IReportService
     {
 
-        private readonly IReportQueryService _reportQueryService;
+        private readonly IGenericRepository<Category> _categoryRepo;
+        private readonly IGenericRepository<User> _userRepo;
+        private readonly IQueryHelperService _queryHelperService;
 
-        public ReportService(IReportQueryService reportQueryService)
+
+        public ReportService(IGenericRepository<Category> categoryRepo, IGenericRepository<User> userRepo, IQueryHelperService queryHelperService)
         {
-            _reportQueryService = reportQueryService;
+            _categoryRepo = categoryRepo;
+            _userRepo = userRepo;
+            _queryHelperService = queryHelperService;
         }
 
         public async Task<List<UserProductivityResponseDto>> GetUserProductivityReportAsync(UserProductivityFilterDto filter)
@@ -26,11 +31,22 @@ namespace Application.Services
             {
                 specBuilder.Where(u => u.Id == filter.UserId.Value);
             }
+
             var spec = specBuilder.Build();
 
-            var rawData = await _reportQueryService.GetUserProductivityDataAsync(spec, filter);
+            var query = _userRepo.GetQuery(spec);
 
-            return rawData.Select(u => new UserProductivityResponseDto
+            var filteredQuery = query.Select(u => new UserTodosData
+            {
+                UserName = u.UserName,
+                Todos = u.Todos.Where(t =>
+                (!filter.FromDate.HasValue || t.CreatedAt >= filter.FromDate) &&
+                (!filter.ToDate.HasValue || t.CreatedAt <= filter.ToDate) &&
+                (!filter.Priority.HasValue || t.Priority == filter.Priority))
+            });
+
+
+            var selectedQuery =  filteredQuery.Select(u => new UserProductivityResponseDto
             {
                 UserName = u.UserName,
                 TotalTodos = u.Todos.Count(),
@@ -43,12 +59,13 @@ namespace Application.Services
                 : Math.Round((double)u.Todos.Count(t => t.Status == TodoStatus.Done) / u.Todos.Count() * 100, 2),
 
                 AverageCompletionTime = u.Todos
-            .Where(t => t.Status == TodoStatus.Done && t.CompletedAt.HasValue)
-            .Select(t => (t.CompletedAt.Value - t.CreatedAt).TotalDays)
-            .DefaultIfEmpty(0)
-            .Select(avg=>Math.Round(avg,1))
-            .Average(),
-            }).ToList();
+                    .Where(t => t.Status == TodoStatus.Done && t.CompletedAt.HasValue)
+                    .Select(t => (t.CompletedAt!.Value - t.CreatedAt).TotalDays)
+                    .DefaultIfEmpty(0)
+                    .Average(avg=>Math.Round(avg,1)),
+            });
+
+            return await _queryHelperService.ToListAsync(selectedQuery);            
         }
         public async Task<List<CategoryUsageResponseDto>> GetCategoryUsageReportAsync(CategoryUsageFilterDto filter)
         {
@@ -56,9 +73,18 @@ namespace Application.Services
             var specBuilder = new SpecificationBuilder<Category>();
             var spec = specBuilder.Build();
 
-            var rawData = await _reportQueryService.GetCategoryUsagesDataAsync(spec, filter);
+            var query = _categoryRepo.GetQuery(spec);
 
-            return rawData.Select(c => new CategoryUsageResponseDto
+            var filteredQuery = query.Select(c => new CategoryTodosData
+            {
+                CategoryName = c.Name,
+                CategoryOwner = c.User.UserName,
+                Todos = c.Todos.Where(t =>
+                (!filter.FromDate.HasValue || t.CreatedAt >= filter.FromDate) &&
+                (!filter.ToDate.HasValue || t.CreatedAt <= filter.ToDate))
+            })
+                .Where(c=> filter.IncludeEmptyCategories || c.Todos.Any());
+            var selectedQuery = filteredQuery.Select(c => new CategoryUsageResponseDto
             {
                 CategoryName = c.CategoryName,
                 CategoryOwner = c.CategoryOwner,
@@ -72,15 +98,16 @@ namespace Application.Services
                 CompletionPercentage = c.Todos.Count() == 0 ? 0
               : Math.Round((double)c.Todos.Count(t => t.Status == TodoStatus.Done) /
               c.Todos.Count() * 100, 2),
-
-                LastActivityDate = c.Todos.Select(t => (DateTime?)(t.UpdatedAt ?? t.CreatedAt)).Max(),
-
+             
+                LastActivityDate = c.Todos.Max(t => (DateTime?)(t.UpdatedAt ?? t.CreatedAt)),
+                
                 MostCommonPriority = c.Todos
-             .GroupBy(t => t.Priority)
-             .OrderByDescending(g => g.Count())
-             .Select(g => (Priority?)g.Key)
-             .FirstOrDefault(),
-            }).ToList();
+                    .GroupBy(t => t.Priority)
+                    .OrderByDescending(g => g.Count())
+                    .Select(g => (Priority?)g.Key)
+                    .FirstOrDefault(),
+            });
+           return await _queryHelperService.ToListAsync(selectedQuery);
         }
         private void ValidateDates(DateTime? fromDate, DateTime? toDate)
         {
