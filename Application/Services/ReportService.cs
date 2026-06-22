@@ -9,135 +9,106 @@ namespace Application.Services
 {
     public class ReportService : IReportService
     {
-        private readonly IGenericRepository<User> _userRepo;
-        private readonly IGenericRepository<Category> _categoryRepo;
 
-        public ReportService(IGenericRepository<User> userRepo,
-            IGenericRepository<Category> categoryRepo)
+        private readonly IGenericRepository<Category> _categoryRepo;
+        private readonly IGenericRepository<User> _userRepo;
+        private readonly IQueryHelperService _queryHelperService;
+
+
+        public ReportService(IGenericRepository<Category> categoryRepo, IGenericRepository<User> userRepo, IQueryHelperService queryHelperService)
         {
-            _userRepo = userRepo;
             _categoryRepo = categoryRepo;
+            _userRepo = userRepo;
+            _queryHelperService = queryHelperService;
         }
 
         public async Task<List<UserProductivityResponseDto>> GetUserProductivityReportAsync(UserProductivityFilterDto filter)
         {
             ValidateDates(filter.FromDate, filter.ToDate);
 
-            var specBuilder = new SpecificationBuilder<User, UserProductivityResponseDto>();
-
+            var specBuilder = new SpecificationBuilder<User>();
             if (filter.UserId.HasValue)
             {
                 specBuilder.Where(u => u.Id == filter.UserId.Value);
             }
-            else
-            {
-                specBuilder.Where(u => u.Todos.Any());
-            }
-            specBuilder.Select(u => new UserProductivityResponseDto
+
+            var spec = specBuilder.Build();
+
+            var query = _userRepo.GetQuery(spec);
+
+            var filteredQuery = query.Select(u => new UserTodosData
             {
                 UserName = u.UserName,
-                TotalTodos = u.Todos.Count(t =>
-                (!filter.Priority.HasValue || t.Priority == filter.Priority.Value) &&
-                (!filter.FromDate.HasValue || t.CreatedAt >= filter.FromDate.Value) &&
-                (!filter.ToDate.HasValue || t.CreatedAt <= filter.ToDate.Value)),
-
-                CompletedTodos = u.Todos.Count(t => t.Status == TodoStatus.Done &&
-                (!filter.Priority.HasValue || t.Priority == filter.Priority.Value) &&
-                (!filter.FromDate.HasValue || t.CreatedAt >= filter.FromDate.Value) &&
-                (!filter.ToDate.HasValue || t.CreatedAt <= filter.ToDate.Value)),
-
-                PendingTodos = u.Todos.Count(t => t.Status == TodoStatus.Pending &&
-                (!filter.Priority.HasValue || t.Priority == filter.Priority.Value) &&
-                (!filter.FromDate.HasValue || t.CreatedAt >= filter.FromDate.Value) &&
-                (!filter.ToDate.HasValue || t.CreatedAt <= filter.ToDate.Value)),
-
-                HighPriorityTodos = u.Todos.Count(t => t.Priority == Priority.High &&
-                (!filter.FromDate.HasValue || t.CreatedAt >= filter.FromDate.Value) &&
-                (!filter.ToDate.HasValue || t.CreatedAt <= filter.ToDate.Value)),
-
-                ExpiredTodos = u.Todos.Count(t =>
-                t.ExpiryDate < DateTime.UtcNow && t.Status != TodoStatus.Done &&
-                (!filter.Priority.HasValue || t.Priority == filter.Priority.Value) &&
-                (!filter.FromDate.HasValue || t.CreatedAt >= filter.FromDate.Value) &&
-                (!filter.ToDate.HasValue || t.CreatedAt <= filter.ToDate.Value))
-
+                Todos = u.Todos.Where(t =>
+                (!filter.FromDate.HasValue || t.CreatedAt >= filter.FromDate) &&
+                (!filter.ToDate.HasValue || t.CreatedAt <= filter.ToDate) &&
+                (!filter.Priority.HasValue || t.Priority == filter.Priority))
             });
-            var spec = specBuilder.Build();
-            var results = await _userRepo.ListWithSpecAsync(spec);
 
-            foreach (var r in results)
+
+            var selectedQuery =  filteredQuery.Select(u => new UserProductivityResponseDto
             {
-                r.CompletionRate = r.TotalTodos > 0 ? Math.Round((double)r.CompletedTodos * 100 / r.TotalTodos, 2) : 0;
-                r.AverageCompletionTime = r.CompletedTodos > 0 ? 24.0 : 0.0;
-            }
-            return results;
-        }
+                UserName = u.UserName,
+                TotalTodos = u.Todos.Count(),
+                CompletedTodos = u.Todos.Count(t => t.Status == TodoStatus.Done),
+                PendingTodos = u.Todos.Count(t => t.Status == TodoStatus.Pending),
+                HighPriorityTodos = u.Todos.Count(t => t.Priority == Priority.High),
+                ExpiredTodos = u.Todos.Count(t => t.ExpiryDate < DateTime.UtcNow && t.Status != TodoStatus.Pending),
 
+                CompletionRate = u.Todos.Count() == 0 ? 0
+                : Math.Round((double)u.Todos.Count(t => t.Status == TodoStatus.Done) / u.Todos.Count() * 100, 2),
+
+                AverageCompletionTime = u.Todos
+                    .Where(t => t.Status == TodoStatus.Done && t.CompletedAt.HasValue)
+                    .Select(t => (t.CompletedAt!.Value - t.CreatedAt).TotalDays)
+                    .DefaultIfEmpty(0)
+                    .Average(avg=>Math.Round(avg,1)),
+            });
+
+            return await _queryHelperService.ToListAsync(selectedQuery);            
+        }
         public async Task<List<CategoryUsageResponseDto>> GetCategoryUsageReportAsync(CategoryUsageFilterDto filter)
         {
             ValidateDates(filter.FromDate, filter.ToDate);
+            var specBuilder = new SpecificationBuilder<Category>();
+            var spec = specBuilder.Build();
 
-            var specBuilder = new SpecificationBuilder<Category, CategoryUsageResponseDto>();
-            if (!filter.IncludeEmptyCategories)
-            {
-                specBuilder.Where(c => c.Todos.Any());
-            }
-            specBuilder.Select(c => new CategoryUsageResponseDto
+            var query = _categoryRepo.GetQuery(spec);
+
+            var filteredQuery = query.Select(c => new CategoryTodosData
             {
                 CategoryName = c.Name,
                 CategoryOwner = c.User.UserName,
-
-                TotalLinkedTodos = c.Todos.Count(t =>
-                      (!filter.FromDate.HasValue || t.CreatedAt >= filter.FromDate.Value) &&
-                      (!filter.ToDate.HasValue || t.CreatedAt <= filter.ToDate.Value)),
-
-                CompletedTodos = c.Todos.Count(t => t.Status == TodoStatus.Done &&
-                    (!filter.FromDate.HasValue || t.CreatedAt >= filter.FromDate.Value) &&
-                    (!filter.ToDate.HasValue || t.CreatedAt <= filter.ToDate.Value)),
-
-                PendingTodos = c.Todos.Count(t => t.Status == TodoStatus.Pending &&
-                  (!filter.FromDate.HasValue || t.CreatedAt >= filter.FromDate.Value) &&
-                  (!filter.ToDate.HasValue || t.CreatedAt <= filter.ToDate.Value)),
-
-                ExpiredTodos = c.Todos.Count(t =>
-                  t.ExpiryDate < DateTime.UtcNow && t.Status != TodoStatus.Done &&
-                  (!filter.FromDate.HasValue || t.CreatedAt >= filter.FromDate.Value) &&
-                  (!filter.ToDate.HasValue || t.CreatedAt <= filter.ToDate.Value)),
-
-                RecurringTodosCount = c.Todos.Count(t => t.RecurrenceType != null &&
-                  (!filter.FromDate.HasValue || t.CreatedAt >= filter.FromDate.Value) &&
-                  (!filter.ToDate.HasValue || t.CreatedAt <= filter.ToDate.Value)),
-
-                LastActivityDate = c.Todos.OrderByDescending(t => t.CreatedAt)
-                .Select(t => (DateTime?)t.CreatedAt)
-                .FirstOrDefault(),
-
-                HighCountHelper = c.Todos.Count(t => t.Priority == Priority.High),
-                MediumCountHelper = c.Todos.Count(t => t.Priority == Priority.Medium),
-                LowCountHelper = c.Todos.Count(t => t.Priority == Priority.Low),
-            });
-            var spec = specBuilder.Build();
-            var results = await _categoryRepo.ListWithSpecAsync(spec);
-
-            foreach (var r in results)
+                Todos = c.Todos.Where(t =>
+                (!filter.FromDate.HasValue || t.CreatedAt >= filter.FromDate) &&
+                (!filter.ToDate.HasValue || t.CreatedAt <= filter.ToDate))
+            })
+                .Where(c=> filter.IncludeEmptyCategories || c.Todos.Any());
+            var selectedQuery = filteredQuery.Select(c => new CategoryUsageResponseDto
             {
-                r.CompletionPercentage = r.TotalLinkedTodos > 0 ? Math.Round((double)r.CompletedTodos * 100 / r.TotalLinkedTodos, 2) : 0;
-                r.SafeToDelete = r.TotalLinkedTodos == 0;
+                CategoryName = c.CategoryName,
+                CategoryOwner = c.CategoryOwner,
+                TotalLinkedTodos = c.Todos.Count(),
+                CompletedTodos = c.Todos.Count(t => t.Status == TodoStatus.Done),
+                PendingTodos = c.Todos.Count(t => t.Status == TodoStatus.Pending),
+                ExpiredTodos = c.Todos.Count(t => t.ExpiryDate < DateTime.UtcNow && t.Status != TodoStatus.Pending),
+                SafeToDelete = c.Todos.Count() == 0,
+                RecurringTodosCount = c.Todos.Count(t => t.RecurrenceType != null),
 
-                int maxCount = Math.Max(r.HighCountHelper, Math.Max(r.MediumCountHelper, r.LowCountHelper));
-
-                if (maxCount == 0)
-                    r.MostCommonPriority = null;
-                else if (maxCount == r.HighCountHelper)
-                    r.MostCommonPriority = Priority.High;
-                else if (maxCount == r.MediumCountHelper)
-                    r.MostCommonPriority = Priority.Medium;
-                else
-                    r.MostCommonPriority = Priority.Low;
-            }
-            return results;
+                CompletionPercentage = c.Todos.Count() == 0 ? 0
+              : Math.Round((double)c.Todos.Count(t => t.Status == TodoStatus.Done) /
+              c.Todos.Count() * 100, 2),
+             
+                LastActivityDate = c.Todos.Max(t => (DateTime?)(t.UpdatedAt ?? t.CreatedAt)),
+                
+                MostCommonPriority = c.Todos
+                    .GroupBy(t => t.Priority)
+                    .OrderByDescending(g => g.Count())
+                    .Select(g => (Priority?)g.Key)
+                    .FirstOrDefault(),
+            });
+           return await _queryHelperService.ToListAsync(selectedQuery);
         }
-
         private void ValidateDates(DateTime? fromDate, DateTime? toDate)
         {
             if (fromDate.HasValue && toDate.HasValue)

@@ -55,24 +55,24 @@ namespace Infrastructure.Repositories
         }
         public async Task<T?> GetEntityWithSpec(ISpecification<T> spec)
         {
-            return await ApplySpecification(spec).FirstOrDefaultAsync();
+            return await GetQuery(spec).FirstOrDefaultAsync();
         }
         public async Task<IReadOnlyList<T>> ListWithSpecAsync(ISpecification<T> spec)
         {
-            return await ApplySpecification(spec).ToListAsync();
+            return await GetQuery(spec).ToListAsync();
         }
         public async Task<int> CountAsync(ISpecification<T> spec)
         {
-            return await ApplySpecification(spec).CountAsync();
+            return await GetQuery(spec).CountAsync();
         }
-        private IQueryable<T> ApplySpecification(ISpecification<T> spec)
+        public IQueryable<T> GetQuery(ISpecification<T> spec)
         {
             return SpecificationEvaluator<T>.GetQuery(_todolistDbcontext.Set<T>().AsQueryable(), spec);
         }
 
         public async Task<bool> AnyAsync(ISpecification<T> spec)
         {
-            return await ApplySpecification(spec).AnyAsync();
+            return await GetQuery(spec).AnyAsync();
         }
         public async Task<List<TResult>> ListWithSpecAsync<TResult>(ISpecification<T, TResult> spec)
         {

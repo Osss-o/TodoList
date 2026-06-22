@@ -22,12 +22,6 @@ namespace Application.Dtos.Reports
         public int RecurringTodosCount { get; set; }
         public bool SafeToDelete { get; set; }
 
-        [JsonIgnore]
-        public int HighCountHelper { get; set; }
-        [JsonIgnore]
-        public int MediumCountHelper { get; set; }
-        [JsonIgnore]
-        public int LowCountHelper { get; set; }
     }
        
 }

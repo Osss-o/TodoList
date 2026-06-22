@@ -86,6 +86,7 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IFileAttachmentService, FileAttachmentService>();
 builder.Services.AddScoped<IGenerateAccessToken, GenerateAccessToken>();
 builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddScoped<IQueryHelperService, QueryHelperService>();
 
 // Add services to the container.
 
