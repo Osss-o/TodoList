@@ -3,6 +3,7 @@ using Application.Repositories.Interface;
 using Application.Services.Interface;
 using Application.Specifications;
 using Domain.Entities;
+using Domain.Entities.Enums;
 
 
 namespace Application.Services
@@ -35,15 +36,30 @@ namespace Application.Services
             {
                 throw new InvalidOperationException($"A category with the name '{normalizedName}' already exists.");
             }
+            if (categoryDto.ParentCategoryId.HasValue)
+            {
+                var parentSpec = new SpecificationBuilder<Category>()
+                    .Where(c => c.Id == categoryDto.ParentCategoryId.Value && c.UserId == userId)
+                    .Build();
+                if (!await _categoryRepo.AnyAsync(parentSpec))
+                {
+                    throw new KeyNotFoundException($"Parent category with ID {categoryDto.ParentCategoryId.Value} not found.");
+                }
+            }
 
             var category = new Category
             {
                 Name = categoryDto.Name.Trim(),
                 UserId = userId,
+                ParentCategoryId = categoryDto.ParentCategoryId,
+                Progress = categoryDto.Progress,
+                Status = categoryDto.Progress >= 100 ? TodoStatus.Done : TodoStatus.Pending
             };
 
             await _categoryRepo.Insert(category);
             await _categoryRepo.SaveChanges();
+
+            await UpdateParentProgressAsync(category.ParentCategoryId);
 
         }
 
@@ -80,9 +96,23 @@ namespace Application.Services
                 }
                 await _todoRepo.SaveChanges();
             }
+            var subCategoriesSpec = new SpecificationBuilder<Category>()
+                .Where(c=>c.ParentCategoryId==id)
+                .Build();
+            var subCategories = await _categoryRepo.ListWithSpecAsync(subCategoriesSpec);
+
+            foreach (var sub in subCategories)
+            {
+                sub.ParentCategoryId = null;
+                _categoryRepo.Update(sub);
+            }
+
+            int? parentId =category.ParentCategoryId;
 
             await _categoryRepo.Delete(category);
             await _categoryRepo.SaveChanges();
+
+            await UpdateParentProgressAsync(parentId);
         }
 
         public async Task<List<CategoryListDto>> GetAllAsync(CategoryFilterDto filter)
@@ -110,7 +140,10 @@ namespace Application.Services
             {
                 Id = c.Id,
                 Name = c.Name,
-                TodoCount = c.Todos.Count(t => isAdmin || t.UserId == userId)
+                TodoCount = c.Todos.Count(t => isAdmin || t.UserId == userId),
+                ParentCategoryId = c.ParentCategoryId,
+                Progress = c.Progress,
+                Status = c.Status
             }).ToList();
         }
 
@@ -132,7 +165,10 @@ namespace Application.Services
             {
                 Id = category.Id,
                 Name = category.Name,
-                TodoCount = category.Todos.Count(t => isAdmin || t.UserId == userId)
+                TodoCount = category.Todos.Count(t => isAdmin || t.UserId == userId),
+                ParentCategoryId = category.ParentCategoryId,
+                Progress = category.Progress,
+                Status = category.Status
             };
         }
 
@@ -142,11 +178,12 @@ namespace Application.Services
 
             var spec = new SpecificationBuilder<Category>()
                 .Where(c => c.Id == id && c.UserId == userId)
+                .Include(c => c.Todos)
                 .Build();
 
-            var categoryinput = await _categoryRepo.GetEntityWithSpec(spec);
+            var categoryInput = await _categoryRepo.GetEntityWithSpec(spec);
 
-            if (categoryinput == null)
+            if (categoryInput == null)
             {
                 throw new KeyNotFoundException($"Category with ID {id} not found or you don't have permission to edit it.");
             }
@@ -155,22 +192,80 @@ namespace Application.Services
                 var normalizedName = categoryDto.Name.Trim();
 
                 var exists = new SpecificationBuilder<Category>()
-                    .Where(c => c.Id != id &&
-                        c.UserId == userId &&
-                        c.Name == normalizedName)
+                    .Where(c => c.Id != id && c.UserId == userId && c.Name == normalizedName)
                     .Build();
 
-                var existsCategory = await _categoryRepo.AnyAsync(exists);
-
-                if (existsCategory)
+                if (await _categoryRepo.AnyAsync(exists))
                 {
                     throw new InvalidOperationException($"A category with the name '{normalizedName}' already exists.");
                 }
-                categoryinput.Name = normalizedName;
+                categoryDto.Name = normalizedName;
             }
+            int? oldParentId = categoryInput.ParentCategoryId;
 
-            _categoryRepo.Update(categoryinput);
-            await _categoryRepo.SaveChanges();
+            if (categoryDto.ParentCategoryId != categoryInput.ParentCategoryId)
+            {
+                if (categoryDto.ParentCategoryId == id)
+                    throw new InvalidOperationException("A category cannot be its own parent.");
+                categoryInput.ParentCategoryId = categoryDto.ParentCategoryId;
+            }
+            if (categoryDto.Progress.HasValue && categoryDto.Progress.Value != categoryInput.Progress)
+            {
+                if (categoryInput.Todos.Any())
+                {
+                    throw new InvalidOperationException("Cannot update progress directly when there are linked todos. Progress is calculated based on todos.");
+
+                }
+                else
+                {
+                    categoryInput.Progress = categoryDto.Progress.Value;
+                    categoryInput.Status = categoryDto.Progress.Value >= 100 ? TodoStatus.Done : TodoStatus.Pending;
+                }
+                _categoryRepo.Update(categoryInput);
+                await _categoryRepo.SaveChanges();
+
+                if (oldParentId != categoryInput.ParentCategoryId)
+                {
+                    await UpdateParentProgressAsync(oldParentId);
+                    await UpdateParentProgressAsync(categoryInput.ParentCategoryId);
+                }
+                else
+                {
+                    await UpdateParentProgressAsync(categoryInput.ParentCategoryId);
+                }
+                
+            }
         }
+        private async Task UpdateParentProgressAsync(int? parentCategoryId)
+        {
+            if (!parentCategoryId.HasValue) return;
+
+                var parentSpec = new SpecificationBuilder<Category>()
+                         .Where(c => c.Id == parentCategoryId.Value)
+                         .Include(c => c.SubCategories)
+                         .Build();
+
+            var parent = await _categoryRepo.GetEntityWithSpec(parentSpec);
+            if (parent == null) return;
+
+            if (parent.SubCategories.Any())
+            {
+                parent.Progress =Math.Round(parent.SubCategories.Average(c => c.Progress), 2);
+            }
+            else
+            {
+                parent.Progress = 0;
+            }
+            parent.Status = parent.Progress >= 100 ? TodoStatus.Done : TodoStatus.Pending;
+
+            _categoryRepo.Update(parent);
+            await _categoryRepo.SaveChanges();
+
+            if (parent.ParentCategoryId.HasValue)
+            {
+                await UpdateParentProgressAsync(parent.ParentCategoryId);
+            }
+        }
+
     }
 }
