@@ -9,5 +9,7 @@ namespace Application.Dtos.Category
     public class CategoryUpdateDto
     {
         public string? Name { get; set; }
+        public int? ParentCategoryId { get; set; }
+       // public double? Progress { get; set; } = 0;
     }
 }

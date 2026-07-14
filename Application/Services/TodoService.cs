@@ -43,7 +43,7 @@ namespace Application.Services
             if (todo.CategoryId.HasValue)
             {
                 var categorySpec = new SpecificationBuilder<Category>()
-                    .Where(c => c.Id == todo.CategoryId.Value&& c.UserId == userId)
+                    .Where(c => c.Id == todo.CategoryId.Value && c.UserId == userId)
                     .Build();
                 var categoryExixts = await _categoryRepo.AnyAsync(categorySpec);
 
@@ -77,6 +77,10 @@ namespace Application.Services
             {
                 await _fileService.CreateManyAsync(todo.Files, todoObj.Id);
             }
+            if (todoObj.CategoryId.HasValue)
+            {
+                await UpdateCategoryProgressAsync(todoObj.CategoryId.Value);
+            }
 
         }
 
@@ -87,7 +91,7 @@ namespace Application.Services
 
             var specUserId = isAdmin ? (int?)null : userId;
             var spec = TodoSpecsFactory.GetByIdSpec(id, specUserId);
-            
+
             var todo = await _todoRepo.GetEntityWithSpec(spec);
 
             if (todo == null)
@@ -97,10 +101,15 @@ namespace Application.Services
             {
                 await _fileService.DeleteAsync(file.Id);
             }
+            int? categoryId = todo.CategoryId;
 
             await _todoRepo.Delete(todo);
             await _todoRepo.SaveChanges();
 
+            if (categoryId.HasValue)
+            {
+                await UpdateCategoryProgressAsync(categoryId.Value);
+            }
         }
 
         public async Task<List<TodoListDto>> GetAllAsync(TodoFilterDto filter)
@@ -237,20 +246,23 @@ namespace Application.Services
             if (todo.Description != null)
                 todoObj.Description = todo.Description.Trim();
 
+            int? oldCategoryId = todoObj.CategoryId;
+            bool statusChanged = false;
+
             if (todo.CategoryId.HasValue)
             {
-               var categorySpec = new SpecificationBuilder<Category>()
-                    .Where(c => c.Id == todo.CategoryId.Value &&(isAdmin || c.UserId == userId))
-                    .Build();
+                var categorySpec = new SpecificationBuilder<Category>()
+                     .Where(c => c.Id == todo.CategoryId.Value && (isAdmin || c.UserId == userId))
+                     .Build();
 
                 var categoryExixts = await _categoryRepo.AnyAsync(categorySpec);
 
                 if (!categoryExixts)
                     throw new KeyNotFoundException("Category not found or access denied.");
-              
+
                 todoObj.CategoryId = todo.CategoryId.Value;
             }
-           
+
             if (todo.DueDate.HasValue)
             {
                 if (todo.DueDate.Value.Date < DateTime.UtcNow.Date)
@@ -266,7 +278,9 @@ namespace Application.Services
                     throw new InvalidOperationException("Note: You cannot change the status of an expired task. Please edit the 'Expiration Date'.");
                 }
                 todoObj.Status = todo.Status.Value;
-                if(todoObj.Status==TodoStatus.Done)
+                statusChanged = true;
+
+                if (todoObj.Status == TodoStatus.Done)
                 {
                     todoObj.CompletedAt = DateTime.UtcNow;
                 }
@@ -283,9 +297,85 @@ namespace Application.Services
 
             _todoRepo.Update(todoObj);
             await _todoRepo.SaveChanges();
+
+            if (oldCategoryId != todoObj.CategoryId)
+            {
+                if (oldCategoryId.HasValue)
+                {
+                    await UpdateCategoryProgressAsync(oldCategoryId.Value);
+                }
+                if (todoObj.CategoryId.HasValue)
+                {
+                    await UpdateCategoryProgressAsync(todoObj.CategoryId.Value);
+                }
+            }
+            else if(statusChanged && todoObj.CategoryId.HasValue)
+            {
+                await UpdateCategoryProgressAsync(todoObj.CategoryId.Value);
+            }
+        }
+        private async Task UpdateCategoryProgressAsync(int categoryId)
+        {
+            var spec = new SpecificationBuilder<Category>()
+                .Where(t => t.Id == categoryId)
+                .Include(c => c.Todos)
+                .Build();
+
+            var category = await _categoryRepo.GetEntityWithSpec(spec);
+            if (category == null) return;
+
+            if (category.Todos.Any())
+            {
+                int totalTodos = category.Todos.Count;
+                int completedTodos = category.Todos.Count(t => t.Status == TodoStatus.Done);
+
+                category.Progress = Math.Round((double)completedTodos / totalTodos * 100, 2);
+            }
+            else
+            {
+                category.Progress = 0;
+            }
+
+            category.Status = category.Progress == 100 ? TodoStatus.Done : TodoStatus.Pending;
+
+            _categoryRepo.Update(category);
+            await _categoryRepo.SaveChanges();
+
+            if (category.ParentCategoryId.HasValue)
+            {
+                await UpdateParentCategoryProgressAsync(category.ParentCategoryId.Value);
+            }
         }
 
-    }
+        private async Task UpdateParentCategoryProgressAsync(int parentId)
+        {
+            var parentSpec = new SpecificationBuilder<Category>()
+                .Where(c => c.Id == parentId)
+                .Include(c => c.SubCategories)
+                .Build();
 
+            var parent = await _categoryRepo.GetEntityWithSpec(parentSpec);
+
+            if (parent == null) return;
+
+            if (parent.SubCategories.Any())
+            {
+                parent.Progress = Math.Round(parent.SubCategories.Average(c => c.Progress), 2);
+            }
+            else
+            {
+                parent.Progress = 0;
+            }
+            parent.Status = parent.Progress >= 100 ? TodoStatus.Done : TodoStatus.Pending;
+
+            _categoryRepo.Update(parent);
+            await _categoryRepo.SaveChanges();
+
+            if (parent.ParentCategoryId.HasValue)
+            {
+                await UpdateParentCategoryProgressAsync(parent.ParentCategoryId.Value);
+            }
+        }
+    }
 
 }

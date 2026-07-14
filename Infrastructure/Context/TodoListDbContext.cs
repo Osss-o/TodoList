@@ -1,10 +1,5 @@
 ﻿using Domain.Entities;
-using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
-using System.Data;
-using System.Net.Mail;
-using System.Reflection.Emit;
 
 namespace Infrastructure.Context
 {
@@ -18,7 +13,7 @@ namespace Infrastructure.Context
         public DbSet<Category> Category { get; set; }
         public DbSet<RefreshToken> RefreshToken { get; set; }
         public DbSet<FileAttachment> Attachments { get; set; }
-       
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -30,7 +25,7 @@ namespace Infrastructure.Context
 
             foreach (var relationShip in relationShips)
             {
-                if( relationShip.PrincipalEntityType.ClrType == typeof(User))
+                if (relationShip.PrincipalEntityType.ClrType == typeof(User))
                 {
                     relationShip.DeleteBehavior = DeleteBehavior.Cascade;
                 }
@@ -58,6 +53,11 @@ namespace Infrastructure.Context
                 .HasForeignKey(rt => rt.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            modelBuilder.Entity<Category>()
+                .HasOne(c => c.ParentCategory)
+                .WithMany(c => c.SubCategories)
+                .HasForeignKey(c => c.ParentCategoryId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }
