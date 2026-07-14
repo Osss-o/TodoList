@@ -52,8 +52,8 @@ namespace Application.Services
                 Name = categoryDto.Name.Trim(),
                 UserId = userId,
                 ParentCategoryId = categoryDto.ParentCategoryId,
-                Progress = categoryDto.Progress,
-                Status = categoryDto.Progress >= 100 ? TodoStatus.Done : TodoStatus.Pending
+                Progress =0,
+                Status = TodoStatus.Pending
             };
 
             await _categoryRepo.Insert(category);
@@ -77,6 +77,7 @@ namespace Application.Services
             {
                 throw new KeyNotFoundException($"Category with ID {id} not found.");
             }
+
             var todosSpec = new SpecificationBuilder<Todo>()
                 .Where(t => t.CategoryId == id && (isAdmin || t.UserId == currentUserId))
                 .Build();
@@ -85,7 +86,6 @@ namespace Application.Services
             if (deleteLinkedTodos)
             {
                 await _todoRepo.DeleteRange(todos.ToList());
-                await _todoRepo.SaveChanges();
             }
             else
             {
@@ -94,7 +94,6 @@ namespace Application.Services
                     todo.CategoryId = null;
                     _todoRepo.Update(todo);
                 }
-                await _todoRepo.SaveChanges();
             }
             var subCategoriesSpec = new SpecificationBuilder<Category>()
                 .Where(c=>c.ParentCategoryId==id)
@@ -199,7 +198,7 @@ namespace Application.Services
                 {
                     throw new InvalidOperationException($"A category with the name '{normalizedName}' already exists.");
                 }
-                categoryDto.Name = normalizedName;
+                categoryInput.Name = normalizedName;
             }
             int? oldParentId = categoryInput.ParentCategoryId;
 
@@ -209,31 +208,12 @@ namespace Application.Services
                     throw new InvalidOperationException("A category cannot be its own parent.");
                 categoryInput.ParentCategoryId = categoryDto.ParentCategoryId;
             }
-            if (categoryDto.Progress.HasValue && categoryDto.Progress.Value != categoryInput.Progress)
+            _categoryRepo.Update(categoryInput);
+            await _categoryRepo.SaveChanges();
+            if (oldParentId != categoryInput.ParentCategoryId)
             {
-                if (categoryInput.Todos.Any())
-                {
-                    throw new InvalidOperationException("Cannot update progress directly when there are linked todos. Progress is calculated based on todos.");
-
-                }
-                else
-                {
-                    categoryInput.Progress = categoryDto.Progress.Value;
-                    categoryInput.Status = categoryDto.Progress.Value >= 100 ? TodoStatus.Done : TodoStatus.Pending;
-                }
-                _categoryRepo.Update(categoryInput);
-                await _categoryRepo.SaveChanges();
-
-                if (oldParentId != categoryInput.ParentCategoryId)
-                {
-                    await UpdateParentProgressAsync(oldParentId);
-                    await UpdateParentProgressAsync(categoryInput.ParentCategoryId);
-                }
-                else
-                {
-                    await UpdateParentProgressAsync(categoryInput.ParentCategoryId);
-                }
-                
+                await UpdateParentProgressAsync(oldParentId);
+                await UpdateParentProgressAsync(categoryInput.ParentCategoryId);
             }
         }
         private async Task UpdateParentProgressAsync(int? parentCategoryId)

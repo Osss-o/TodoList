@@ -11,6 +11,6 @@ namespace Application.Dtos.Category
         
         public string Name { get; set; }
         public int? ParentCategoryId { get; set; }
-        public double Progress { get; set; } = 0;
+      //  public double Progress { get; set; } = 0;
     }
 }

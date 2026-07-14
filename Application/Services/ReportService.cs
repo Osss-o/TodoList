@@ -45,8 +45,9 @@ namespace Application.Services
                 (!filter.Priority.HasValue || t.Priority == filter.Priority))
             });
 
+            var data = await _queryHelperService.ToListAsync(filteredQuery);
 
-            var selectedQuery =  filteredQuery.Select(u => new UserProductivityResponseDto
+            var result= data.Select(u => new UserProductivityResponseDto
             {
                 UserName = u.UserName,
                 TotalTodos = u.Todos.Count(),
@@ -58,14 +59,14 @@ namespace Application.Services
                 CompletionRate = u.Todos.Count() == 0 ? 0
                 : Math.Round((double)u.Todos.Count(t => t.Status == TodoStatus.Done) / u.Todos.Count() * 100, 2),
 
-                AverageCompletionTime = u.Todos
+                AverageCompletionTime = Math.Round(u.Todos
                     .Where(t => t.Status == TodoStatus.Done && t.CompletedAt.HasValue)
                     .Select(t => (t.CompletedAt!.Value - t.CreatedAt).TotalDays)
                     .DefaultIfEmpty(0)
-                    .Average(avg=>Math.Round(avg,1)),
-            });
+                    .Average(),1)
+            }).ToList();
 
-            return await _queryHelperService.ToListAsync(selectedQuery);            
+            return result;
         }
         public async Task<List<CategoryUsageResponseDto>> GetCategoryUsageReportAsync(CategoryUsageFilterDto filter)
         {
@@ -84,7 +85,10 @@ namespace Application.Services
                 (!filter.ToDate.HasValue || t.CreatedAt <= filter.ToDate))
             })
                 .Where(c=> filter.IncludeEmptyCategories || c.Todos.Any());
-            var selectedQuery = filteredQuery.Select(c => new CategoryUsageResponseDto
+
+            var data = await _queryHelperService.ToListAsync(filteredQuery);
+
+            var result = data.Select(c => new CategoryUsageResponseDto
             {
                 CategoryName = c.CategoryName,
                 CategoryOwner = c.CategoryOwner,
@@ -106,8 +110,8 @@ namespace Application.Services
                     .OrderByDescending(g => g.Count())
                     .Select(g => (Priority?)g.Key)
                     .FirstOrDefault(),
-            });
-           return await _queryHelperService.ToListAsync(selectedQuery);
+            }).ToList();
+           return result;
         }
         private void ValidateDates(DateTime? fromDate, DateTime? toDate)
         {
